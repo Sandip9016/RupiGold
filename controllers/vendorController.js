@@ -7,26 +7,19 @@ const nodemailer = require("nodemailer");
  * EMAIL TRANSPORTER
  */
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+const nodemailer = require("nodemailer");
+const dns = require("dns");
 
-  // CHANGE THIS
-  port: 587,
-  secure: false,
+// FORCE NODE TO USE IPV4
+dns.setDefaultResultOrder("ipv4first");
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-
-  // FORCE IPV4
-  family: 4,
-
-  tls: {
-    rejectUnauthorized: false,
-  },
-
-  connectionTimeout: 10000,
 });
 
 /**
