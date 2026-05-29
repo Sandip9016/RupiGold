@@ -7,7 +7,6 @@ const nodemailer = require("nodemailer");
  * EMAIL TRANSPORTER
  */
 
-const nodemailer = require("nodemailer");
 const dns = require("dns");
 
 // FORCE NODE TO USE IPV4
