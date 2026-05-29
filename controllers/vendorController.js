@@ -7,11 +7,25 @@ const nodemailer = require("nodemailer");
  * EMAIL TRANSPORTER
  */
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+});
+
+/**
+ * VERIFY EMAIL SERVER
+ */
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log("❌ Email Config Error:", error);
+  } else {
+    console.log("✅ Email Server Ready");
+  }
 });
 
 /**
@@ -211,6 +225,13 @@ const registerVendor = async (req, res) => {
     });
   } catch (error) {
     console.log("❌ Register Error:", error.message);
+
+    // DELETE USER IF EMAIL FAILED
+    if (req.body.email) {
+      await Vendor.findOneAndDelete({
+        email: req.body.email,
+      });
+    }
 
     res.status(500).json({
       success: false,
@@ -643,7 +664,6 @@ const deleteVendor = async (req, res) => {
     console.log("📧 Email:", email);
     console.log("=================================");
 
-    // Find Vendor
     const vendor = await Vendor.findOne({ email });
 
     if (!vendor) {
@@ -653,7 +673,6 @@ const deleteVendor = async (req, res) => {
       });
     }
 
-    // Delete Vendor
     await Vendor.findOneAndDelete({ email });
 
     console.log("🗑️ Vendor Deleted Successfully");
