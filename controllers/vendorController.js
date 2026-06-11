@@ -692,6 +692,36 @@ const deleteVendor = async (req, res) => {
   }
 };
 
+/**
+ * GET ALL VENDORS
+ * GET /api/vendor/all
+ * Returns all vendors except password, email, mobileNumber
+ */
+const getAllVendors = async (req, res) => {
+  try {
+    console.log("=================================");
+    console.log("📥 GET ALL VENDORS API CALLED");
+    console.log("=================================");
+
+    const vendors = await Vendor.find().select(
+      "-password -email -mobileNumber -otp -otpExpiry",
+    );
+
+    res.status(200).json({
+      success: true,
+      total: vendors.length,
+      vendors,
+    });
+  } catch (error) {
+    console.log("❌ Get All Vendors Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerVendor,
   verifyOTP,
@@ -701,4 +731,5 @@ module.exports = {
   verifyForgotOTP,
   resetPassword,
   deleteVendor,
+  getAllVendors,
 };

@@ -1,6 +1,7 @@
 const express = require("express");
 
 const router = express.Router();
+const { protect } = require("../middleware/authMiddleware");
 
 const {
   registerVendor,
@@ -11,6 +12,7 @@ const {
   verifyForgotOTP,
   resetPassword,
   deleteVendor,
+  getAllVendors,
 } = require("../controllers/vendorController");
 
 router.post("/register", registerVendor);
@@ -30,5 +32,8 @@ router.post("/reset-password", resetPassword);
 
 // DELETE VENDOR
 router.get("/delete/:email", deleteVendor);
+
+// GET ALL VENDORS
+router.get("/all", protect, getAllVendors);
 
 module.exports = router;
