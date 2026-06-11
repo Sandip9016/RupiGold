@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
 const Vendor = require("../models/Vendor");
+const Admin = require("../models/Admin");
 
-// PROTECT — Verify JWT
+// PROTECT — Vendor JWT
 const protect = async (req, res, next) => {
   try {
     let token;
@@ -40,9 +41,51 @@ const protect = async (req, res, next) => {
   }
 };
 
-// ADMIN — no restriction for now
-const adminOnly = (req, res, next) => {
-  next();
+// ADMIN PROTECT — Admin JWT only
+const adminOnly = async (req, res, next) => {
+  try {
+    let token;
+
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized — Admin login required",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden — Admins only",
+      });
+    }
+
+    const admin = await Admin.findById(decoded.id).select("-password");
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    req.admin = admin;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
 };
 
 module.exports = { protect, adminOnly };

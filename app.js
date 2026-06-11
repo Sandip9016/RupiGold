@@ -23,6 +23,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Routes
 app.use("/api/vendor", require("./routes/vendorRoutes"));
 app.use("/api/post", require("./routes/postRoutes"));
+app.use("/api/admin", require("./routes/adminRoutes"));
 
 // Health Route
 app.get("/", (req, res) => {

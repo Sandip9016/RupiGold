@@ -703,9 +703,7 @@ const getAllVendors = async (req, res) => {
     console.log("📥 GET ALL VENDORS API CALLED");
     console.log("=================================");
 
-    const vendors = await Vendor.find().select(
-      "-password -email -mobileNumber -otp -otpExpiry",
-    );
+    const vendors = await Vendor.find().select("-password -otp -otpExpiry");
 
     res.status(200).json({
       success: true,
