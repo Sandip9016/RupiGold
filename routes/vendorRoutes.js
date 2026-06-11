@@ -1,6 +1,5 @@
 const express = require("express");
 
-const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 
 const {
@@ -34,6 +33,6 @@ router.post("/reset-password", resetPassword);
 router.get("/delete/:email", deleteVendor);
 
 // GET ALL VENDORS
-router.get("/all", protect, getAllVendors);
+router.get("/all", getAllVendors);
 
 module.exports = router;
