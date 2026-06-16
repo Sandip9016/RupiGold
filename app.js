@@ -24,7 +24,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/vendor", require("./routes/vendorRoutes"));
 app.use("/api/post", require("./routes/postRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
-
+app.use("/api/product", require("./routes/productRoutes"));
 // Health Route
 app.get("/", (req, res) => {
   res.send("Backend Running Successfully");
