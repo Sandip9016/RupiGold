@@ -2,6 +2,7 @@ const Vendor = require("../models/Vendor");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 /**
  * EMAIL TRANSPORTER
@@ -117,6 +118,94 @@ const otpEmailTemplate = (otp) => {
   </html>
   `;
 };
+
+/**
+ * EMAIL TEMPLATE — NEW VENDOR NOTIFICATION (sent to ADMIN)
+ */
+const adminNewVendorTemplate = (vendor, acceptLink) => `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/><title>New Vendor Approval Request</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" style="padding:40px 20px;">
+
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#B8860B,#FFD700);padding:40px 40px 30px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;">🆕 New Vendor Awaiting Approval</h1>
+              <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">RupiGold Admin Notification</p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:40px;">
+
+              <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.7;">
+                A vendor has verified their email (OTP confirmed) and is now waiting for your approval before they can access RupiGold.
+              </p>
+
+              <!-- VENDOR DETAILS CARD -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                style="background:#fafafa;border:1px solid #e8e0c8;border-radius:12px;overflow:hidden;margin-bottom:28px;">
+                <tr>
+                  <td style="background:#B8860B;padding:12px 20px;">
+                    <p style="margin:0;color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Vendor Details</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px;font-size:14px;color:#333;line-height:1.9;">
+                    <strong>Business Name:</strong> ${vendor.businessName}<br/>
+                    <strong>Business Type:</strong> ${vendor.businessType}<br/>
+                    <strong>Owner / Director:</strong> ${vendor.ownerDirectorName}<br/>
+                    <strong>Email:</strong> ${vendor.email}<br/>
+                    <strong>Mobile:</strong> ${vendor.mobileNumber}<br/>
+                    <strong>Address:</strong> ${vendor.address}, ${vendor.city}, ${vendor.state}, ${vendor.country} - ${vendor.pincode}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- ACCEPT BUTTON -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+                <tr>
+                  <td align="center">
+                    <a href="${acceptLink}" target="_blank"
+                      style="display:inline-block;background:#1a7a4a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:8px;">
+                      ✅ Accept Vendor
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:13px;color:#888;line-height:1.7;text-align:center;">
+                To reject this vendor (with a reason), please use the Admin Dashboard.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background:#1a1a2e;padding:24px 40px;text-align:center;">
+              <p style="margin:0 0 6px;color:#FFD700;font-size:14px;font-weight:600;">RupiGold — India's Gold & Finance Platform</p>
+              <p style="margin:0;color:rgba(255,255,255,0.45);font-size:12px;">This is an automated email. Please do not reply.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+`;
 
 /**
  * REGISTER + SEND OTP
@@ -288,6 +377,11 @@ const verifyOTP = async (req, res) => {
     vendor.otp = null;
     vendor.otpExpiry = null;
 
+    // ── ADMIN APPROVAL WORKFLOW ─────────────────────────────────
+    vendor.approvalStatus = "Pending";
+    vendor.rejectionReason = null;
+    vendor.approvalToken = crypto.randomBytes(32).toString("hex");
+
     await vendor.save();
 
     console.log("✅ Vendor verified successfully");
@@ -304,13 +398,35 @@ const verifyOTP = async (req, res) => {
 
     console.log("🔑 JWT Token generated");
 
+    // ── NOTIFY ADMIN — NEW VENDOR AWAITING APPROVAL ─────────────
+    try {
+      const backendUrl =
+        process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
+      const acceptLink = `${backendUrl}/api/admin/vendor/approve/${vendor._id}/${vendor.approvalToken}`;
+
+      await transporter.sendMail({
+        from: `"RupiGold" <${process.env.EMAIL_USER}>`,
+        to: process.env.ADMIN_EMAIL,
+        subject: "🆕 New Vendor Awaiting Approval — RupiGold",
+        html: adminNewVendorTemplate(vendor, acceptLink),
+      });
+      console.log("📧 Admin notified about new vendor:", vendor.email);
+    } catch (emailErr) {
+      console.log(
+        "⚠️ Admin notification email failed (non-blocking):",
+        emailErr.message,
+      );
+    }
+
     const vendorData = vendor.toObject();
 
     delete vendorData.password;
+    delete vendorData.approvalToken;
 
     res.status(200).json({
       success: true,
-      message: "Vendor verified successfully",
+      message:
+        "Vendor verified successfully. Your account is now awaiting admin approval.",
       token,
       vendor: vendorData,
     });
@@ -427,6 +543,22 @@ const loginVendor = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Please verify your account first",
+      });
+    }
+
+    // ── ADMIN APPROVAL GATE ─────────────────────────────────────
+    if (vendor.approvalStatus === "Pending") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is awaiting admin approval",
+      });
+    }
+
+    if (vendor.approvalStatus === "Rejected") {
+      return res.status(403).json({
+        success: false,
+        message: "Your registration was rejected",
+        reason: vendor.rejectionReason || undefined,
       });
     }
 

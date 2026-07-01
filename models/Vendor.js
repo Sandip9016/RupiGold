@@ -75,6 +75,25 @@ const vendorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // ── ADMIN APPROVAL WORKFLOW ────────────────────────────────
+    approvalStatus: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected"],
+      default: "Pending",
+    },
+
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+
+    // One-time secure token used for the "Accept" link inside the
+    // admin-notification email (so admin can approve with a single click)
+    approvalToken: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

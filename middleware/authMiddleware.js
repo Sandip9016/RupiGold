@@ -31,6 +31,22 @@ const protect = async (req, res, next) => {
       });
     }
 
+    // ── ADMIN APPROVAL GATE ─────────────────────────────────────
+    if (vendor.approvalStatus === "Pending") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is awaiting admin approval",
+      });
+    }
+
+    if (vendor.approvalStatus === "Rejected") {
+      return res.status(403).json({
+        success: false,
+        message: "Your registration was rejected",
+        reason: vendor.rejectionReason || undefined,
+      });
+    }
+
     req.vendor = vendor;
     next();
   } catch (error) {
