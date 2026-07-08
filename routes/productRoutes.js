@@ -10,17 +10,17 @@ const {
   deleteProduct,
 } = require("../controllers/productController");
 
-const { protect } = require("../middleware/authMiddleware");
-const upload = require("../middleware/uploadMiddleware");
+const { vendorProtect } = require("../middleware/authMiddleware");
+const { productImageUpload } = require("../middleware/uploadMiddleware");
 
 // PUBLIC
 router.get("/all", getAllProducts);
 router.get("/:id", getProductById);
 
 // PROTECTED — Vendor only
-router.post("/", protect, upload.single("productImage"), createProduct);
-router.get("/my/products", protect, getMyProducts);
-router.put("/:id", protect, upload.single("productImage"), updateProduct);
-router.delete("/:id", protect, deleteProduct);
+router.post("/", vendorProtect, productImageUpload.single("productImage"), createProduct);
+router.get("/my/products", vendorProtect, getMyProducts);
+router.put("/:id", vendorProtect, productImageUpload.single("productImage"), updateProduct);
+router.delete("/:id", vendorProtect, deleteProduct);
 
 module.exports = router;

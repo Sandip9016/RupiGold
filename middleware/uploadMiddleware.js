@@ -9,18 +9,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ─── CLOUDINARY STORAGE ───────────────────────────────────────
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "rupigold/posts",
-    allowed_formats: ["jpg", "jpeg", "png", "webp"],
-    transformation: [
-      { width: 1280, height: 720, crop: "limit", quality: "auto" },
-    ],
-  },
-});
-
 // ─── FILE FILTER ──────────────────────────────────────────────
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -31,13 +19,31 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// ─── MULTER UPLOAD ────────────────────────────────────────────
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
-  },
-});
+// ─── UPLOADER FACTORY ─────────────────────────────────────────
+const makeUploader = (folder) => {
+  const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder,
+      allowed_formats: ["jpg", "jpeg", "png", "webp"],
+      transformation: [
+        { width: 1280, height: 720, crop: "limit", quality: "auto" },
+      ],
+    },
+  });
 
-module.exports = upload;
+  return multer({
+    storage,
+    fileFilter,
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max
+    },
+  });
+};
+
+// ─── UPLOADERS ────────────────────────────────────────────────
+const postImageUpload = makeUploader("rupigold/posts");
+const productImageUpload = makeUploader("rupigold/products");
+const profilePicUpload = makeUploader("rupigold/profile");
+
+module.exports = { postImageUpload, productImageUpload, profilePicUpload };

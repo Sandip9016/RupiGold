@@ -7,6 +7,7 @@ const {
   approveVendorViaLink,
   approveVendorDashboard,
   rejectVendorDashboard,
+  getAllContributorsAdmin,
 } = require("../controllers/adminController");
 
 const { adminOnly } = require("../middleware/authMiddleware");
@@ -21,5 +22,9 @@ router.get("/vendor/approve/:vendorId/:token", approveVendorViaLink);
 router.get("/vendors/pending", adminOnly, getPendingVendors);
 router.patch("/vendor/:id/approve", adminOnly, approveVendorDashboard);
 router.patch("/vendor/:id/reject", adminOnly, rejectVendorDashboard);
+
+// ── CONTRIBUTORS — READ-ONLY MONITORING (JWT protected) ────────
+// Contributors have no approval workflow — this is visibility only.
+router.get("/contributors", adminOnly, getAllContributorsAdmin);
 
 module.exports = router;

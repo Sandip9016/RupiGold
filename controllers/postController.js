@@ -1,5 +1,5 @@
 const Post = require("../models/Post");
-const Vendor = require("../models/Vendor");
+const Contributor = require("../models/Contributor");
 const { POST_CATEGORIES } = require("../models/Post");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // ─── EMAIL TEMPLATE: POST SUBMITTED ──────────────────────────
-const postSubmittedTemplate = (vendorName, postTitle, category) => `
+const postSubmittedTemplate = (contributorName, postTitle, category) => `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"/><title>Post Submitted</title></head>
@@ -41,7 +41,7 @@ const postSubmittedTemplate = (vendorName, postTitle, category) => `
           <tr>
             <td style="padding:40px;">
 
-              <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1a2e;">Hello, ${vendorName} 👋</p>
+              <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1a2e;">Hello, ${contributorName} 👋</p>
               <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.7;">
                 Your post has been successfully submitted to <strong>RupiGold</strong>. Our editorial team will review it carefully and make a decision within <strong>24 hours</strong>.
               </p>
@@ -116,7 +116,7 @@ const postSubmittedTemplate = (vendorName, postTitle, category) => `
 `;
 
 // ─── EMAIL TEMPLATE: POST APPROVED ───────────────────────────
-const postApprovedTemplate = (vendorName, postTitle, category) => `
+const postApprovedTemplate = (contributorName, postTitle, category) => `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"/><title>Post Approved</title></head>
@@ -142,7 +142,7 @@ const postApprovedTemplate = (vendorName, postTitle, category) => `
           <tr>
             <td style="padding:40px;">
 
-              <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1a2e;">Congratulations, ${vendorName}! 🎉</p>
+              <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1a2e;">Congratulations, ${contributorName}! 🎉</p>
               <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.7;">
                 Great news! Your post has been <strong style="color:#1a7a4a;">approved</strong> by our editorial team and is now live on the RupiGold platform. Readers can discover and engage with your content right now.
               </p>
@@ -211,7 +211,7 @@ const postApprovedTemplate = (vendorName, postTitle, category) => `
 `;
 
 // ─── EMAIL TEMPLATE: POST REJECTED ───────────────────────────
-const postRejectedTemplate = (vendorName, postTitle, category) => `
+const postRejectedTemplate = (contributorName, postTitle, category) => `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"/><title>Post Rejected</title></head>
@@ -237,7 +237,7 @@ const postRejectedTemplate = (vendorName, postTitle, category) => `
           <tr>
             <td style="padding:40px;">
 
-              <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1a2e;">Hello, ${vendorName}</p>
+              <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1a2e;">Hello, ${contributorName}</p>
               <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.7;">
                 After careful review, our editorial team has decided <strong style="color:#c0392b;">not to approve</strong> your post at this time. This doesn't mean your content is bad — it may just need some adjustments to meet our publishing standards.
               </p>
@@ -325,13 +325,14 @@ const countWords = (text) => {
 };
 
 // ─── CREATE POST ──────────────────────────────────────────────
+// Protected — Contributor only (via contributorProtect middleware)
 const createPost = async (req, res) => {
   try {
     const { title, category, blogContent, upiId } = req.body;
 
     console.log("=================================");
     console.log("📥 CREATE POST API CALLED");
-    console.log("👤 Vendor ID:", req.vendor.id);
+    console.log("👤 Contributor ID:", req.contributor.id);
     console.log("=================================");
 
     if (!title || title.trim() === "") {
@@ -379,22 +380,22 @@ const createPost = async (req, res) => {
       blogContent,
       wordCount,
       upiId: upiId && upiId.trim() !== "" ? upiId.trim() : null,
-      vendor: req.vendor.id,
+      contributor: req.contributor.id,
       status: "Pending",
     });
 
     console.log("✅ Post created:", post._id);
 
-    // SEND EMAIL TO VENDOR
+    // SEND EMAIL TO CONTRIBUTOR
     try {
-      const vendor = await Vendor.findById(req.vendor.id).select("email ownerDirectorName");
+      const contributor = await Contributor.findById(req.contributor.id).select("email name");
       await transporter.sendMail({
         from: `"RupiGold" <${process.env.EMAIL_USER}>`,
-        to: vendor.email,
+        to: contributor.email,
         subject: "✍️ Your Post Has Been Submitted — RupiGold",
-        html: postSubmittedTemplate(vendor.ownerDirectorName, post.title, post.category),
+        html: postSubmittedTemplate(contributor.name, post.title, post.category),
       });
-      console.log("📧 Submission email sent to:", vendor.email);
+      console.log("📧 Submission email sent to:", contributor.email);
     } catch (emailErr) {
       console.log("⚠️ Email send failed (non-blocking):", emailErr.message);
     }
@@ -419,9 +420,10 @@ const createPost = async (req, res) => {
 };
 
 // ─── MY POSTS ─────────────────────────────────────────────────
+// Protected — Contributor only
 const getMyPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ vendor: req.vendor.id }).sort({ createdAt: -1 });
+    const posts = await Post.find({ contributor: req.contributor.id }).sort({ createdAt: -1 });
     res.status(200).json({ success: true, total: posts.length, posts });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server Error", error: error.message });
@@ -437,7 +439,7 @@ const getApprovedPosts = async (req, res) => {
 
     const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
-      .populate("vendor", "businessName ownerDirectorName");
+      .populate("contributor", "name profilePic");
 
     res.status(200).json({ success: true, total: posts.length, posts });
   } catch (error) {
@@ -450,7 +452,7 @@ const getAllPosts = async (req, res) => {
   try {
     const posts = await Post.find()
       .sort({ createdAt: -1 })
-      .populate("vendor", "businessName ownerDirectorName email mobileNumber");
+      .populate("contributor", "name email phone");
 
     res.status(200).json({ success: true, total: posts.length, posts });
   } catch (error) {
@@ -471,7 +473,7 @@ const updatePostStatus = async (req, res) => {
       });
     }
 
-    const post = await Post.findById(postId).populate("vendor", "email ownerDirectorName");
+    const post = await Post.findById(postId).populate("contributor", "email name");
     if (!post) {
       return res.status(404).json({ success: false, message: "Post not found" });
     }
@@ -479,14 +481,14 @@ const updatePostStatus = async (req, res) => {
     post.status = status;
     await post.save();
 
-    // SEND EMAIL TO VENDOR
+    // SEND EMAIL TO CONTRIBUTOR
     try {
-      const vendorEmail = post.vendor.email;
-      const vendorName = post.vendor.ownerDirectorName;
+      const contributorEmail = post.contributor.email;
+      const contributorName = post.contributor.name;
 
       const emailHtml = status === "Approved"
-        ? postApprovedTemplate(vendorName, post.title, post.category)
-        : postRejectedTemplate(vendorName, post.title, post.category);
+        ? postApprovedTemplate(contributorName, post.title, post.category)
+        : postRejectedTemplate(contributorName, post.title, post.category);
 
       const emailSubject = status === "Approved"
         ? "🎉 Your Post is Approved & Live — RupiGold"
@@ -494,11 +496,11 @@ const updatePostStatus = async (req, res) => {
 
       await transporter.sendMail({
         from: `"RupiGold" <${process.env.EMAIL_USER}>`,
-        to: vendorEmail,
+        to: contributorEmail,
         subject: emailSubject,
         html: emailHtml,
       });
-      console.log(`📧 ${status} email sent to:`, vendorEmail);
+      console.log(`📧 ${status} email sent to:`, contributorEmail);
     } catch (emailErr) {
       console.log("⚠️ Email send failed (non-blocking):", emailErr.message);
     }

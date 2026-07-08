@@ -1,18 +1,23 @@
 const jwt = require("jsonwebtoken");
 const Vendor = require("../models/Vendor");
+const Contributor = require("../models/Contributor");
 const Admin = require("../models/Admin");
 
-// PROTECT — Vendor JWT
-const protect = async (req, res, next) => {
-  try {
-    let token;
+// ── HELPER — extract bearer token ──────────────────────────────
+const getToken = (req) => {
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer ")
+  ) {
+    return req.headers.authorization.split(" ")[1];
+  }
+  return null;
+};
 
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+// ── VENDOR PROTECT — Vendor JWT only, product routes ────────────
+const vendorProtect = async (req, res, next) => {
+  try {
+    const token = getToken(req);
 
     if (!token) {
       return res.status(401).json({
@@ -22,6 +27,14 @@ const protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role && decoded.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden — Vendors only",
+      });
+    }
+
     const vendor = await Vendor.findById(decoded.id).select("-password");
 
     if (!vendor) {
@@ -57,17 +70,60 @@ const protect = async (req, res, next) => {
   }
 };
 
-// ADMIN PROTECT — Admin JWT only
+// ── CONTRIBUTOR PROTECT — Contributor JWT only, blog/post routes ─
+// No admin approval gate — only OTP verification (isVerified) required.
+const contributorProtect = async (req, res, next) => {
+  try {
+    const token = getToken(req);
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized — Login first",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role && decoded.role !== "contributor") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden — Contributors only",
+      });
+    }
+
+    const contributor = await Contributor.findById(decoded.id).select(
+      "-password",
+    );
+
+    if (!contributor) {
+      return res.status(401).json({
+        success: false,
+        message: "Contributor not found",
+      });
+    }
+
+    if (!contributor.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your account first",
+      });
+    }
+
+    req.contributor = contributor;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
+};
+
+// ── ADMIN PROTECT — Admin JWT only ───────────────────────────────
 const adminOnly = async (req, res, next) => {
   try {
-    let token;
-
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = getToken(req);
 
     if (!token) {
       return res.status(401).json({
@@ -104,4 +160,4 @@ const adminOnly = async (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly };
+module.exports = { vendorProtect, contributorProtect, adminOnly };

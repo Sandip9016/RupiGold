@@ -1,5 +1,6 @@
 const Admin = require("../models/Admin");
 const Vendor = require("../models/Vendor");
+const Contributor = require("../models/Contributor");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
@@ -449,10 +450,33 @@ const rejectVendorDashboard = async (req, res) => {
   }
 };
 
+// ─── GET ALL CONTRIBUTORS — ADMIN VISIBILITY ──────────────────
+// Contributors have no approval workflow (OTP-only), so this is a
+// read-only monitoring list for the admin dashboard.
+const getAllContributorsAdmin = async (req, res) => {
+  try {
+    const contributors = await Contributor.find()
+      .select("-password -otp -otpExpiry")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      total: contributors.length,
+      contributors,
+    });
+  } catch (error) {
+    console.log("❌ Get All Contributors (Admin) Error:", error.message);
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
 module.exports = {
   loginAdmin,
   getPendingVendors,
   approveVendorViaLink,
   approveVendorDashboard,
   rejectVendorDashboard,
+  getAllContributorsAdmin,
 };

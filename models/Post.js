@@ -52,9 +52,9 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
 
-    vendor: {
+    contributor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "Contributor",
       required: true,
     },
 
