@@ -1,6 +1,7 @@
 const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("cloudinary").v2;
+const CloudinaryStorage = require("multer-storage-cloudinary");
+const cloudinaryModule = require("cloudinary");
+const cloudinary = cloudinaryModule.v2;
 
 // ─── CLOUDINARY CONFIG ────────────────────────────────────────
 cloudinary.config({
@@ -21,8 +22,8 @@ const fileFilter = (req, file, cb) => {
 
 // ─── UPLOADER FACTORY ─────────────────────────────────────────
 const makeUploader = (folder) => {
-  const storage = new CloudinaryStorage({
-    cloudinary,
+  const storage = CloudinaryStorage({
+    cloudinary: cloudinaryModule,
     params: {
       folder,
       allowed_formats: ["jpg", "jpeg", "png", "webp"],

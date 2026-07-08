@@ -119,7 +119,6 @@ const registerContributor = async (req, res) => {
     console.log("=================================");
 
     if (!name || !email || !phone || !country || !password) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         message: "name, email, phone, country and password are required",
@@ -136,7 +135,6 @@ const registerContributor = async (req, res) => {
     const existingEmail = await Contributor.findOne({ email });
 
     if (existingEmail) {
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         message: "Email already exists",
@@ -146,7 +144,6 @@ const registerContributor = async (req, res) => {
     const existingPhone = await Contributor.findOne({ phone });
 
     if (existingPhone) {
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         message: "Phone number already exists",
@@ -162,7 +159,7 @@ const registerContributor = async (req, res) => {
       name,
       email,
       phone,
-      profilePic: req.file.path,
+      profilePic: req.file.secure_url,
       country,
       password: hashedPassword,
       otp,
@@ -187,8 +184,6 @@ const registerContributor = async (req, res) => {
     });
   } catch (error) {
     console.log("❌ Contributor Register Error:", error.message);
-
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
     if (req.body.email) {
       await Contributor.findOneAndDelete({ email: req.body.email });

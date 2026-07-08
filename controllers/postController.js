@@ -336,17 +336,18 @@ const createPost = async (req, res) => {
     console.log("=================================");
 
     if (!title || title.trim() === "") {
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(400).json({ success: false, message: "Title is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Title is required" });
     }
 
     if (!category || category.trim() === "") {
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(400).json({ success: false, message: "Category is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Category is required" });
     }
 
     if (!POST_CATEGORIES.includes(category)) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         message: `Invalid category. Choose from: ${POST_CATEGORIES.join(", ")}`,
@@ -354,17 +355,19 @@ const createPost = async (req, res) => {
     }
 
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "Featured Image is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Featured Image is required" });
     }
 
     if (!blogContent || blogContent.trim() === "") {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ success: false, message: "Blog Content is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Blog Content is required" });
     }
 
     const wordCount = countWords(blogContent);
     if (wordCount < 1000) {
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         message: "Please complete 1000 words",
@@ -376,7 +379,7 @@ const createPost = async (req, res) => {
     const post = await Post.create({
       title: title.trim(),
       category,
-      featuredImage: req.file.path,
+      featuredImage: req.file.secure_url,
       blogContent,
       wordCount,
       upiId: upiId && upiId.trim() !== "" ? upiId.trim() : null,
@@ -388,12 +391,18 @@ const createPost = async (req, res) => {
 
     // SEND EMAIL TO CONTRIBUTOR
     try {
-      const contributor = await Contributor.findById(req.contributor.id).select("email name");
+      const contributor = await Contributor.findById(req.contributor.id).select(
+        "email name",
+      );
       await transporter.sendMail({
         from: `"RupiGold" <${process.env.EMAIL_USER}>`,
         to: contributor.email,
         subject: "✍️ Your Post Has Been Submitted — RupiGold",
-        html: postSubmittedTemplate(contributor.name, post.title, post.category),
+        html: postSubmittedTemplate(
+          contributor.name,
+          post.title,
+          post.category,
+        ),
       });
       console.log("📧 Submission email sent to:", contributor.email);
     } catch (emailErr) {
@@ -402,7 +411,8 @@ const createPost = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Post submitted successfully. It will go live after Admin approval.",
+      message:
+        "Post submitted successfully. It will go live after Admin approval.",
       post: {
         _id: post._id,
         title: post.title,
@@ -414,8 +424,9 @@ const createPost = async (req, res) => {
     });
   } catch (error) {
     console.log("❌ Create Post Error:", error.message);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -423,10 +434,14 @@ const createPost = async (req, res) => {
 // Protected — Contributor only
 const getMyPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ contributor: req.contributor.id }).sort({ createdAt: -1 });
+    const posts = await Post.find({ contributor: req.contributor.id }).sort({
+      createdAt: -1,
+    });
     res.status(200).json({ success: true, total: posts.length, posts });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -435,7 +450,8 @@ const getApprovedPosts = async (req, res) => {
   try {
     const { category } = req.query;
     const filter = { status: "Approved" };
-    if (category && POST_CATEGORIES.includes(category)) filter.category = category;
+    if (category && POST_CATEGORIES.includes(category))
+      filter.category = category;
 
     const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
@@ -443,7 +459,9 @@ const getApprovedPosts = async (req, res) => {
 
     res.status(200).json({ success: true, total: posts.length, posts });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -456,7 +474,9 @@ const getAllPosts = async (req, res) => {
 
     res.status(200).json({ success: true, total: posts.length, posts });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -473,9 +493,14 @@ const updatePostStatus = async (req, res) => {
       });
     }
 
-    const post = await Post.findById(postId).populate("contributor", "email name");
+    const post = await Post.findById(postId).populate(
+      "contributor",
+      "email name",
+    );
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found" });
     }
 
     post.status = status;
@@ -486,13 +511,15 @@ const updatePostStatus = async (req, res) => {
       const contributorEmail = post.contributor.email;
       const contributorName = post.contributor.name;
 
-      const emailHtml = status === "Approved"
-        ? postApprovedTemplate(contributorName, post.title, post.category)
-        : postRejectedTemplate(contributorName, post.title, post.category);
+      const emailHtml =
+        status === "Approved"
+          ? postApprovedTemplate(contributorName, post.title, post.category)
+          : postRejectedTemplate(contributorName, post.title, post.category);
 
-      const emailSubject = status === "Approved"
-        ? "🎉 Your Post is Approved & Live — RupiGold"
-        : "❌ Your Post Was Not Approved — RupiGold";
+      const emailSubject =
+        status === "Approved"
+          ? "🎉 Your Post is Approved & Live — RupiGold"
+          : "❌ Your Post Was Not Approved — RupiGold";
 
       await transporter.sendMail({
         from: `"RupiGold" <${process.env.EMAIL_USER}>`,
@@ -505,9 +532,13 @@ const updatePostStatus = async (req, res) => {
       console.log("⚠️ Email send failed (non-blocking):", emailErr.message);
     }
 
-    res.status(200).json({ success: true, message: `Post ${status} successfully`, post });
+    res
+      .status(200)
+      .json({ success: true, message: `Post ${status} successfully`, post });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 

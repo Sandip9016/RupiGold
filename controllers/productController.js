@@ -42,7 +42,7 @@ const createProduct = async (req, res) => {
       productName,
       category,
       description,
-      productImage: req.file.path,
+      productImage: req.file.secure_url,
       price,
       purity: purity || null,
       weight: weight || null,
@@ -217,7 +217,7 @@ const updateProduct = async (req, res) => {
 
     // Update image if new one uploaded
     if (req.file) {
-      product.productImage = req.file.path;
+      product.productImage = req.file.secure_url;
     }
 
     await product.save();
