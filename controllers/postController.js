@@ -545,27 +545,52 @@ const updatePostStatus = async (req, res) => {
 
 // ─── INCREMENT VIEWS (Public) ─────────────────────────────────
 // Called when user clicks "View Full" on frontend
+// ─── INCREMENT VIEWS (Public, one count per IP per post) ──────
 const incrementPostViews = async (req, res) => {
   try {
     const { postId } = req.params;
 
-    const post = await Post.findByIdAndUpdate(
-      postId,
-      { $inc: { views: 1 } },
-      { new: true },
-    ).select("views");
+    const ip =
+      req.ip === "::1" || req.ip === "127.0.0.1"
+        ? "127.0.0.1"
+        : req.ip?.replace("::ffff:", "") || "unknown";
 
-    if (!post) {
+    const postExists = await Post.exists({ _id: postId });
+    if (!postExists) {
       return res
         .status(404)
         .json({ success: false, message: "Post not found" });
     }
 
+    let isNewView = true;
+
+    try {
+      await PostView.create({ postId, ip });
+    } catch (err) {
+      if (err.code === 11000) {
+        isNewView = false;
+      } else {
+        throw err;
+      }
+    }
+
+    let post;
+    if (isNewView) {
+      post = await Post.findByIdAndUpdate(
+        postId,
+        { $inc: { views: 1 } },
+        { new: true },
+      ).select("views");
+    } else {
+      post = await Post.findById(postId).select("views");
+    }
+
     res.status(200).json({
       success: true,
-      message: "View count updated",
+      message: isNewView ? "View counted" : "Already viewed by this IP",
       postId: post._id,
       views: post.views,
+      counted: isNewView,
     });
   } catch (error) {
     if (error.kind === "ObjectId") {
