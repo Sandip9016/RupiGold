@@ -542,10 +542,47 @@ const updatePostStatus = async (req, res) => {
   }
 };
 
+// ─── INCREMENT VIEWS (Public) ─────────────────────────────────
+// Called when user clicks "View Full" on frontend
+const incrementPostViews = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      { $inc: { views: 1 } },
+      { new: true },
+    ).select("views");
+
+    if (!post) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "View count updated",
+      postId: post._id,
+      views: post.views,
+    });
+  } catch (error) {
+    if (error.kind === "ObjectId") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Post ID" });
+    }
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
 module.exports = {
   createPost,
   getMyPosts,
   getApprovedPosts,
   getAllPosts,
   updatePostStatus,
+  incrementPostViews,
 };
