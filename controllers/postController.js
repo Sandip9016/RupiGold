@@ -1,5 +1,4 @@
 const Post = require("../models/Post");
-const PostView = require("../models/PostView");
 const Contributor = require("../models/Contributor");
 const { POST_CATEGORIES } = require("../models/Post");
 const fs = require("fs");
@@ -543,58 +542,29 @@ const updatePostStatus = async (req, res) => {
   }
 };
 
-// ─── INCREMENT VIEWS (Public, one count per IP per post) ──────
+// ─── INCREMENT VIEWS (Public) ─────────────────────────────────
 // Called when user clicks "View Full" on frontend
 const incrementPostViews = async (req, res) => {
   try {
     const { postId } = req.params;
 
-    // Get visitor IP (works correctly only if app.set("trust proxy", true)
-    // is set in app.js when running behind a proxy/hosting provider)
-    const ip =
-      req.ip === "::1" || req.ip === "127.0.0.1"
-        ? "127.0.0.1"
-        : req.ip?.replace("::ffff:", "") || "unknown";
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      { $inc: { views: 1 } },
+      { new: true },
+    ).select("views");
 
-    // Make sure the post actually exists first
-    const postExists = await Post.exists({ _id: postId });
-    if (!postExists) {
+    if (!post) {
       return res
         .status(404)
         .json({ success: false, message: "Post not found" });
     }
 
-    let isNewView = true;
-
-    try {
-      // Try to record this IP for this post — unique index blocks duplicates
-      await PostView.create({ postId, ip });
-    } catch (err) {
-      if (err.code === 11000) {
-        // Duplicate key = this IP already viewed this post before
-        isNewView = false;
-      } else {
-        throw err;
-      }
-    }
-
-    let post;
-    if (isNewView) {
-      post = await Post.findByIdAndUpdate(
-        postId,
-        { $inc: { views: 1 } },
-        { new: true },
-      ).select("views");
-    } else {
-      post = await Post.findById(postId).select("views");
-    }
-
     res.status(200).json({
       success: true,
-      message: isNewView ? "View counted" : "Already viewed by this IP",
+      message: "View count updated",
       postId: post._id,
       views: post.views,
-      counted: isNewView,
     });
   } catch (error) {
     if (error.kind === "ObjectId") {

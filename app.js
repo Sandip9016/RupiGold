@@ -10,16 +10,17 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.set("trust proxy", true);
-
+// CORS
 app.use(cors());
 
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static Files — Featured Images
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Routes
 app.use("/api/vendor", require("./routes/vendorRoutes"));
 app.use("/api/contributor", require("./routes/contributorRoutes"));
 app.use("/api/auth", require("./routes/authRoutes"));
