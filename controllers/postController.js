@@ -1,5 +1,6 @@
 const Post = require("../models/Post");
 const Contributor = require("../models/Contributor");
+const PostView = require("../models/PostView");
 const { POST_CATEGORIES } = require("../models/Post");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
