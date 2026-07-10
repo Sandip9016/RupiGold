@@ -15,6 +15,7 @@ const {
   adminOnly,
 } = require("../middleware/authMiddleware");
 const { postImageUpload } = require("../middleware/uploadMiddleware");
+const { verifyCaptcha } = require("../middleware/captchaMiddleware");
 
 // ── PUBLIC ────────────────────────────────────────────────────
 router.get("/approved", getApprovedPosts);
@@ -24,6 +25,7 @@ router.patch("/:postId/view", incrementPostViews);
 router.post(
   "/create",
   contributorProtect,
+  verifyCaptcha,
   postImageUpload.single("featuredImage"),
   createPost,
 );
