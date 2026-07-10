@@ -5,7 +5,8 @@
 
 const verifyCaptcha = async (req, res, next) => {
   try {
-    const captchaToken = req.body.captchaToken || req.body["g-recaptcha-response"];
+    const body = req.body || {};
+    const captchaToken = body.captchaToken || body["g-recaptcha-response"];
 
     if (!captchaToken || captchaToken.trim() === "") {
       return res.status(400).json({
@@ -34,11 +35,14 @@ const verifyCaptcha = async (req, res, next) => {
         : req.ip?.replace("::ffff:", "");
     if (clientIp) params.append("remoteip", clientIp);
 
-    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
+    const response = await fetch(
+      "https://www.google.com/recaptcha/api/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+      },
+    );
 
     const data = await response.json();
 

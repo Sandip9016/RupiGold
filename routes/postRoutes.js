@@ -25,8 +25,8 @@ router.patch("/:postId/view", incrementPostViews);
 router.post(
   "/create",
   contributorProtect,
-  verifyCaptcha,
   postImageUpload.single("featuredImage"),
+  verifyCaptcha,
   createPost,
 );
 router.get("/my-posts", contributorProtect, getMyPosts);
