@@ -5,10 +5,20 @@
 
 const verifyCaptcha = async (req, res, next) => {
   try {
+    console.log("=================================");
+    console.log("🤖 CAPTCHA VERIFY MIDDLEWARE CALLED");
+
     const body = req.body || {};
     const captchaToken = body.captchaToken || body["g-recaptcha-response"];
 
+    console.log("📦 req.body keys:", Object.keys(body));
+    console.log(
+      "🔑 captchaToken received:",
+      captchaToken ? `${captchaToken.slice(0, 15)}...` : "MISSING",
+    );
+
     if (!captchaToken || captchaToken.trim() === "") {
+      console.log("❌ Captcha token missing — rejecting request");
       return res.status(400).json({
         success: false,
         message: "Captcha verification is required",
@@ -35,6 +45,11 @@ const verifyCaptcha = async (req, res, next) => {
         : req.ip?.replace("::ffff:", "");
     if (clientIp) params.append("remoteip", clientIp);
 
+    console.log(
+      "🌐 Verifying with Google siteverify... IP:",
+      clientIp || "unknown",
+    );
+
     const response = await fetch(
       "https://www.google.com/recaptcha/api/siteverify",
       {
@@ -45,6 +60,7 @@ const verifyCaptcha = async (req, res, next) => {
     );
 
     const data = await response.json();
+    console.log("📨 Google siteverify response:", data);
 
     if (!data.success) {
       console.log("⚠️ Captcha verification failed:", data["error-codes"]);
@@ -54,6 +70,7 @@ const verifyCaptcha = async (req, res, next) => {
       });
     }
 
+    console.log("✅ Captcha verified successfully");
     next();
   } catch (error) {
     console.log("❌ Captcha Middleware Error:", error.message);
