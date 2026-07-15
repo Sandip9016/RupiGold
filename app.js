@@ -29,6 +29,8 @@ app.use("/api/post", require("./routes/postRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/product", require("./routes/productRoutes"));
 app.use("/api/customer", require("./routes/customerRoutes"));
+app.use("/api/cart", require("./routes/cartRoutes"));
+app.use("/api/order", require("./routes/orderRoutes"));
 // Health Route
 app.get("/", (req, res) => {
   res.send("Backend Running Successfully");

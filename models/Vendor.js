@@ -94,6 +94,30 @@ const vendorSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    // ── PAYOUT / SETTLEMENT (PayU) ───────────────────────────────
+    // NOTE: True automated marketplace split-payment requires the
+    // vendor to be onboarded as a sub-merchant on PayU's dashboard
+    // (separate KYC done directly with PayU, outside this app).
+    // Until payoutKycStatus is "Verified", vendor payouts are tracked
+    // here but settled manually by admin — see SubOrder.payoutStatus.
+    payoutKycStatus: {
+      type: String,
+      enum: ["Not Submitted", "Pending", "Verified", "Rejected"],
+      default: "Not Submitted",
+    },
+
+    payuSellerId: {
+      type: String,
+      default: null,
+    },
+
+    bankDetails: {
+      accountHolderName: { type: String, default: null },
+      accountNumber: { type: String, default: null },
+      ifsc: { type: String, default: null },
+      panNumber: { type: String, default: null },
+    },
   },
   {
     timestamps: true,

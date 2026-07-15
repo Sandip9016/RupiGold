@@ -14,7 +14,7 @@ const createProduct = async (req, res) => {
       price,
       purity,
       weight,
-      status,
+      quantity,
     } = req.body;
 
     console.log("=================================");
@@ -37,6 +37,15 @@ const createProduct = async (req, res) => {
       });
     }
 
+    const qty = quantity !== undefined ? Number(quantity) : 0;
+
+    if (Number.isNaN(qty) || qty < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "quantity must be a non-negative number",
+      });
+    }
+
     const product = await Product.create({
       vendorId: req.vendor._id,
       productName,
@@ -46,7 +55,7 @@ const createProduct = async (req, res) => {
       price,
       purity: purity || null,
       weight: weight || null,
-      status: status || "stock",
+      quantity: qty,
     });
 
     console.log("✅ Product created successfully:", product._id);
@@ -180,7 +189,7 @@ const updateProduct = async (req, res) => {
       price,
       purity,
       weight,
-      status,
+      quantity,
     } = req.body;
 
     console.log("=================================");
@@ -213,7 +222,22 @@ const updateProduct = async (req, res) => {
     if (price) product.price = price;
     if (purity !== undefined) product.purity = purity;
     if (weight !== undefined) product.weight = weight;
-    if (status) product.status = status;
+    if (quantity !== undefined) {
+      const qty = Number(quantity);
+      if (Number.isNaN(qty) || qty < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "quantity must be a non-negative number",
+        });
+      }
+      if (qty < product.reservedQuantity) {
+        return res.status(400).json({
+          success: false,
+          message: `quantity cannot be less than ${product.reservedQuantity} units currently reserved in customer carts`,
+        });
+      }
+      product.quantity = qty;
+    }
 
     // Update image if new one uploaded
     if (req.file) {

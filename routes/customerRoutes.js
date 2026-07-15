@@ -9,7 +9,13 @@ const {
   forgotPassword,
   verifyForgotOTP,
   resetPassword,
+  addAddress,
+  getAddresses,
+  deleteAddress,
+  setDefaultAddress,
 } = require("../controllers/customerController");
+
+const { customerProtect } = require("../middleware/authMiddleware");
 
 // REGISTER — body: { fname, lname, mobile, email, password }
 router.post("/register", registerCustomer);
@@ -27,5 +33,11 @@ router.post("/login", loginCustomer);
 router.post("/forgot-password", forgotPassword);
 router.post("/verify-forgot-otp", verifyForgotOTP);
 router.post("/reset-password", resetPassword);
+
+// ADDRESS BOOK — Protected, Customer only
+router.post("/address", customerProtect, addAddress);
+router.get("/address", customerProtect, getAddresses);
+router.delete("/address/:addressId", customerProtect, deleteAddress);
+router.put("/address/:addressId/default", customerProtect, setDefaultAddress);
 
 module.exports = router;

@@ -48,10 +48,20 @@ const productSchema = new mongoose.Schema(
       default: null,
     },
 
-    status: {
-      type: String,
-      enum: ["stock", "not in stock"],
-      default: "stock",
+    // Total units available for sale.
+    quantity: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
+
+    // Units currently sitting in customer carts (not yet paid for).
+    // Available-to-buy = quantity - reservedQuantity.
+    reservedQuantity: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
   {

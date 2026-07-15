@@ -688,6 +688,157 @@ const resetPassword = async (req, res) => {
   }
 };
 
+/**
+ * ADD ADDRESS
+ * POST /api/customer/address
+ * body: { label, line1, line2, city, state, pincode, isDefault }
+ * Protected — Customer only
+ */
+const addAddress = async (req, res) => {
+  try {
+    const { label, line1, line2, city, state, pincode, isDefault } = req.body;
+
+    if (!line1 || !city || !state || !pincode) {
+      return res.status(400).json({
+        success: false,
+        message: "line1, city, state and pincode are required",
+      });
+    }
+
+    const customer = await Customer.findById(req.customer._id);
+
+    if (isDefault) {
+      customer.addresses.forEach((a) => (a.isDefault = false));
+    }
+
+    customer.addresses.push({
+      label: label || "Home",
+      line1,
+      line2: line2 || "",
+      city,
+      state,
+      pincode,
+      isDefault: isDefault || customer.addresses.length === 0, // first address defaults true
+    });
+
+    await customer.save();
+
+    console.log("✅ Address added for customer:", customer.email);
+
+    res.status(201).json({
+      success: true,
+      message: "Address added",
+      addresses: customer.addresses,
+    });
+  } catch (error) {
+    console.log("❌ Add Address Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET ADDRESSES
+ * GET /api/customer/address
+ * Protected — Customer only
+ */
+const getAddresses = async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.customer._id).select(
+      "addresses",
+    );
+    res.status(200).json({ success: true, addresses: customer.addresses });
+  } catch (error) {
+    console.log("❌ Get Addresses Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * DELETE ADDRESS
+ * DELETE /api/customer/address/:addressId
+ * Protected — Customer only
+ */
+const deleteAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const customer = await Customer.findById(req.customer._id);
+
+    const address = customer.addresses.id(addressId);
+    if (!address) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Address not found" });
+    }
+
+    const wasDefault = address.isDefault;
+    address.deleteOne();
+
+    if (wasDefault && customer.addresses.length > 0) {
+      customer.addresses[0].isDefault = true;
+    }
+
+    await customer.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address deleted",
+      addresses: customer.addresses,
+    });
+  } catch (error) {
+    console.log("❌ Delete Address Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * SET DEFAULT ADDRESS
+ * PUT /api/customer/address/:addressId/default
+ * Protected — Customer only
+ */
+const setDefaultAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const customer = await Customer.findById(req.customer._id);
+
+    const address = customer.addresses.id(addressId);
+    if (!address) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Address not found" });
+    }
+
+    customer.addresses.forEach((a) => (a.isDefault = false));
+    address.isDefault = true;
+
+    await customer.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Default address updated",
+      addresses: customer.addresses,
+    });
+  } catch (error) {
+    console.log("❌ Set Default Address Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerCustomer,
   verifyOTP,
@@ -696,4 +847,8 @@ module.exports = {
   forgotPassword,
   verifyForgotOTP,
   resetPassword,
+  addAddress,
+  getAddresses,
+  deleteAddress,
+  setDefaultAddress,
 };

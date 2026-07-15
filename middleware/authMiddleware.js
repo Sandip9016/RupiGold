@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const Vendor = require("../models/Vendor");
 const Contributor = require("../models/Contributor");
 const Admin = require("../models/Admin");
+const Customer = require("../models/Customer");
 
 // ── HELPER — extract bearer token ──────────────────────────────
 const getToken = (req) => {
@@ -160,4 +161,56 @@ const adminOnly = async (req, res, next) => {
   }
 };
 
-module.exports = { vendorProtect, contributorProtect, adminOnly };
+// ── CUSTOMER PROTECT — Customer JWT only, cart/order routes ─────
+const customerProtect = async (req, res, next) => {
+  try {
+    const token = getToken(req);
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized — Login first",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role && decoded.role !== "customer") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden — Customers only",
+      });
+    }
+
+    const customer = await Customer.findById(decoded.id).select("-password");
+
+    if (!customer) {
+      return res.status(401).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    if (!customer.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your account first",
+      });
+    }
+
+    req.customer = customer;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
+};
+
+module.exports = {
+  vendorProtect,
+  contributorProtect,
+  adminOnly,
+  customerProtect,
+};
