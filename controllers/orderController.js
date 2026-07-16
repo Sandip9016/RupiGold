@@ -34,17 +34,36 @@ const checkout = async (req, res) => {
   try {
     const { addressId, address } = req.body;
 
+    console.log("=================================");
+    console.log("📥 CHECKOUT API CALLED");
+    console.log("👤 Customer ID:", req.customer._id.toString());
+    console.log("📦 Frontend sent body:", JSON.stringify(req.body));
+    console.log("=================================");
+
     const cart = await Cart.findOne({ customerId: req.customer._id }).populate(
       "items.productId",
       "productName price vendorId",
     );
 
     if (!cart || cart.items.length === 0) {
+      console.log("❌ Checkout rejected — cart is empty");
       return res.status(400).json({
         success: false,
         message: "Cart is empty",
       });
     }
+
+    console.log(
+      "🛒 Cart items at checkout:",
+      JSON.stringify(
+        cart.items.map((i) => ({
+          productId: i.productId && i.productId._id,
+          productName: i.productId && i.productId.productName,
+          quantity: i.quantity,
+          priceAtAdd: i.priceAtAdd,
+        })),
+      ),
+    );
 
     // Guard: a product may have been deleted by its vendor after the
     // customer added it to cart — populate leaves productId as null
@@ -99,6 +118,11 @@ const checkout = async (req, res) => {
       });
     }
 
+    console.log(
+      "📍 Resolved delivery address:",
+      JSON.stringify(deliveryAddress),
+    );
+
     // ── GROUP CART ITEMS BY VENDOR → SUBORDERS ──────────────────
     const vendorGroups = {};
     for (const item of cart.items) {
@@ -126,6 +150,11 @@ const checkout = async (req, res) => {
     });
 
     const totalAmount = subOrders.reduce((s, so) => s + so.subtotal, 0);
+
+    console.log(
+      `🧾 Split into ${subOrders.length} vendor sub-order(s), totalAmount:${totalAmount}`,
+      JSON.stringify(subOrders),
+    );
 
     const txnid = `RG${Date.now()}${crypto.randomBytes(4).toString("hex")}`;
 
@@ -163,23 +192,31 @@ const checkout = async (req, res) => {
     const backendUrl =
       process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
 
+    const payuParams = {
+      key: payu.PAYU_KEY,
+      txnid,
+      amount,
+      productinfo,
+      firstname,
+      email,
+      phone,
+      surl: `${backendUrl}/api/order/payu/success`,
+      furl: `${backendUrl}/api/order/payu/failure`,
+      hash,
+    };
+
+    console.log(
+      "📤 Sending PayU params to frontend:",
+      JSON.stringify(payuParams),
+    );
+    console.log("=================================");
+
     res.status(201).json({
       success: true,
       message: "Order created — submit these params to PayU to pay",
       orderId: order._id,
       payuAction: payu.PAYU_BASE_URL,
-      payuParams: {
-        key: payu.PAYU_KEY,
-        txnid,
-        amount,
-        productinfo,
-        firstname,
-        email,
-        phone,
-        surl: `${backendUrl}/api/order/payu/success`,
-        furl: `${backendUrl}/api/order/payu/failure`,
-        hash,
-      },
+      payuParams,
     });
   } catch (error) {
     console.log("❌ Checkout Error:", error.message);
@@ -200,19 +237,32 @@ const payuSuccess = async (req, res) => {
   try {
     const payload = req.body;
     console.log("=================================");
-    console.log("📥 PAYU SUCCESS CALLBACK — txnid:", payload.txnid);
+    console.log("📥 PAYU SUCCESS CALLBACK — RAW PAYLOAD FROM PAYU:");
+    console.log(JSON.stringify(payload, null, 2));
     console.log("=================================");
 
     const order = await Order.findOne({ "payu.txnId": payload.txnid });
     if (!order) {
-      console.log("❌ Order not found for txnid:", payload.txnid);
+      console.log("❌ No matching order found for txnid:", payload.txnid);
       return res.redirect(`${FRONTEND_FAILURE_URL}?reason=order_not_found`);
     }
 
+    console.log(
+      `🔎 Matched Order ${order._id} — expected amount:${order.totalAmount}, PayU sent amount:${payload.amount}`,
+    );
+
     const hashValid = payu.verifyReverseHash(payload);
+    console.log(
+      "🔐 Reverse hash valid:",
+      hashValid,
+      "| PayU status field:",
+      payload.status,
+    );
 
     if (!hashValid || payload.status !== "success") {
-      console.log("❌ Hash mismatch or non-success status from PayU");
+      console.log(
+        "❌ Hash mismatch or non-success status — marking order Failed",
+      );
       order.payu.status = "Failed";
       order.payu.rawResponse = payload;
       await order.save();
@@ -232,6 +282,9 @@ const payuSuccess = async (req, res) => {
 
     for (const subOrder of order.subOrders) {
       for (const item of subOrder.items) {
+        console.log(
+          `📦 Committing stock — product:${item.productId} decrementing quantity & reservedQuantity by ${item.quantity}`,
+        );
         await Product.findByIdAndUpdate(item.productId, {
           $inc: { quantity: -item.quantity, reservedQuantity: -item.quantity },
         });
@@ -243,7 +296,8 @@ const payuSuccess = async (req, res) => {
       { items: [] },
     );
 
-    console.log("✅ Order paid & stock committed:", order._id);
+    console.log("✅ Order paid & stock committed:", order._id.toString());
+    console.log("=================================");
 
     return res.redirect(`${FRONTEND_SUCCESS_URL}?orderId=${order._id}`);
   } catch (error) {
@@ -260,7 +314,8 @@ const payuFailure = async (req, res) => {
   try {
     const payload = req.body;
     console.log("=================================");
-    console.log("📥 PAYU FAILURE CALLBACK — txnid:", payload.txnid);
+    console.log("📥 PAYU FAILURE CALLBACK — RAW PAYLOAD FROM PAYU:");
+    console.log(JSON.stringify(payload, null, 2));
     console.log("=================================");
 
     const order = await Order.findOne({ "payu.txnId": payload.txnid });
@@ -289,9 +344,16 @@ const payuFailure = async (req, res) => {
  */
 const getMyOrders = async (req, res) => {
   try {
+    console.log("=================================");
+    console.log("📥 GET MY ORDERS API CALLED");
+    console.log("👤 Customer ID:", req.customer._id.toString());
+    console.log("=================================");
+
     const orders = await Order.find({ customerId: req.customer._id })
       .populate("subOrders.vendorId", "businessName")
       .sort({ createdAt: -1 });
+
+    console.log(`✅ Found ${orders.length} order(s)`);
 
     res.status(200).json({ success: true, total: orders.length, orders });
   } catch (error) {
@@ -311,12 +373,21 @@ const getMyOrders = async (req, res) => {
  */
 const getVendorOrders = async (req, res) => {
   try {
+    console.log("=================================");
+    console.log("📥 GET VENDOR ORDERS API CALLED");
+    console.log("👤 Vendor ID:", req.vendor._id.toString());
+    console.log("=================================");
+
     const orders = await Order.find({
       "subOrders.vendorId": req.vendor._id,
       "payu.status": "Success",
     })
       .populate("customerId", "fname lname email mobile")
       .sort({ createdAt: -1 });
+
+    console.log(
+      `✅ Found ${orders.length} paid order(s) with this vendor's items`,
+    );
 
     const result = orders.map((order) => ({
       orderId: order._id,
@@ -352,8 +423,20 @@ const updateSubOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 
+    console.log("=================================");
+    console.log("📥 UPDATE SUBORDER STATUS API CALLED");
+    console.log("👤 Vendor ID:", req.vendor._id.toString());
+    console.log(
+      "📦 Order ID:",
+      orderId,
+      "| Frontend sent body:",
+      JSON.stringify(req.body),
+    );
+    console.log("=================================");
+
     const validStatuses = ["Processing", "Shipped", "Delivered", "Cancelled"];
     if (!validStatuses.includes(status)) {
+      console.log("❌ Rejected — invalid status value from frontend:", status);
       return res.status(400).json({
         success: false,
         message: `status must be one of: ${validStatuses.join(", ")}`,
@@ -380,6 +463,10 @@ const updateSubOrderStatus = async (req, res) => {
 
     subOrder.fulfillmentStatus = status;
     await order.save();
+
+    console.log(
+      `✅ SubOrder status updated to "${status}" for order ${orderId}`,
+    );
 
     res.status(200).json({
       success: true,
