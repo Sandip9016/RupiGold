@@ -46,6 +46,18 @@ const checkout = async (req, res) => {
       });
     }
 
+    // Guard: a product may have been deleted by its vendor after the
+    // customer added it to cart — populate leaves productId as null
+    // in that case. Fail clearly instead of crashing on null access.
+    const missingProduct = cart.items.find((item) => !item.productId);
+    if (missingProduct) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "One or more items in your cart are no longer available. Please remove them and try again.",
+      });
+    }
+
     // ── RESOLVE DELIVERY ADDRESS ────────────────────────────────
     let deliveryAddress;
     if (addressId) {

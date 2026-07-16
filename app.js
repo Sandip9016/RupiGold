@@ -5,6 +5,16 @@ const connectDB = require("./config/db");
 
 require("dotenv").config();
 
+// Without these, an unhandled async error ANYWHERE in the app (not just
+// our new routes) kills the whole process with no clear log — exactly
+// the "server crashed" symptom. Log it loudly so the real cause is visible.
+process.on("unhandledRejection", (reason) => {
+  console.error("💥 UNHANDLED PROMISE REJECTION:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("💥 UNCAUGHT EXCEPTION:", err);
+});
+
 connectDB();
 
 const app = express();
