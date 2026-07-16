@@ -114,7 +114,7 @@ const getCart = async (req, res) => {
       customerId: req.customer._id,
     }).populate(
       "items.productId",
-      "productName productImage price quantity reservedQuantity",
+      "productName productImages price quantity reservedQuantity",
     );
 
     console.log("=================================");

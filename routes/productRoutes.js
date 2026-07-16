@@ -18,9 +18,19 @@ router.get("/all", getAllProducts);
 router.get("/:id", getProductById);
 
 // PROTECTED — Vendor only
-router.post("/", vendorProtect, productImageUpload.single("productImage"), createProduct);
+router.post(
+  "/",
+  vendorProtect,
+  productImageUpload.array("productImages", 5),
+  createProduct,
+);
 router.get("/my/products", vendorProtect, getMyProducts);
-router.put("/:id", vendorProtect, productImageUpload.single("productImage"), updateProduct);
+router.put(
+  "/:id",
+  vendorProtect,
+  productImageUpload.array("productImages", 5),
+  updateProduct,
+);
 router.delete("/:id", vendorProtect, deleteProduct);
 
 module.exports = router;

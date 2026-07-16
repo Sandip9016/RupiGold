@@ -30,10 +30,17 @@ const createProduct = async (req, res) => {
       });
     }
 
-    if (!req.file) {
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Product image is required",
+        message: "Product images are required (2 to 5 images)",
+      });
+    }
+
+    if (req.files.length < 2 || req.files.length > 5) {
+      return res.status(400).json({
+        success: false,
+        message: `Please upload between 2 and 5 images — you sent ${req.files.length}`,
       });
     }
 
@@ -46,12 +53,14 @@ const createProduct = async (req, res) => {
       });
     }
 
+    const productImages = req.files.map((file) => file.secure_url);
+
     const product = await Product.create({
       vendorId: req.vendor._id,
       productName,
       category,
       description,
-      productImage: req.file.secure_url,
+      productImages,
       price,
       purity: purity || null,
       weight: weight || null,
@@ -239,9 +248,15 @@ const updateProduct = async (req, res) => {
       product.quantity = qty;
     }
 
-    // Update image if new one uploaded
-    if (req.file) {
-      product.productImage = req.file.secure_url;
+    // Update images if new ones uploaded — full replace, still 2 to 5
+    if (req.files && req.files.length > 0) {
+      if (req.files.length < 2 || req.files.length > 5) {
+        return res.status(400).json({
+          success: false,
+          message: `Please upload between 2 and 5 images — you sent ${req.files.length}`,
+        });
+      }
+      product.productImages = req.files.map((file) => file.secure_url);
     }
 
     await product.save();

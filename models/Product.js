@@ -26,9 +26,15 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
 
-    productImage: {
-      type: String,
+    // 2 to 5 product photos — Cloudinary secure_urls.
+    productImages: {
+      type: [String],
       required: true,
+      validate: {
+        validator: (arr) =>
+          Array.isArray(arr) && arr.length >= 2 && arr.length <= 5,
+        message: "A product needs between 2 and 5 images",
+      },
     },
 
     price: {
