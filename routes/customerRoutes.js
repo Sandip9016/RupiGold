@@ -9,8 +9,11 @@ const {
   forgotPassword,
   verifyForgotOTP,
   resetPassword,
+  getProfile,
+  updateProfile,
   addAddress,
   getAddresses,
+  updateAddress,
   deleteAddress,
   setDefaultAddress,
 } = require("../controllers/customerController");
@@ -34,9 +37,15 @@ router.post("/forgot-password", forgotPassword);
 router.post("/verify-forgot-otp", verifyForgotOTP);
 router.post("/reset-password", resetPassword);
 
-// ADDRESS BOOK — Protected, Customer only
+// PROFILE — Protected, Customer only
+// GET returns personal details, PUT updates fname/lname/mobile/email (any subset)
+router.get("/profile", customerProtect, getProfile);
+router.put("/profile", customerProtect, updateProfile);
+
+// ADDRESS BOOK — Protected, Customer only (max 2 addresses: 1 primary + 1 secondary)
 router.post("/address", customerProtect, addAddress);
 router.get("/address", customerProtect, getAddresses);
+router.put("/address/:addressId", customerProtect, updateAddress);
 router.delete("/address/:addressId", customerProtect, deleteAddress);
 router.put("/address/:addressId/default", customerProtect, setDefaultAddress);
 

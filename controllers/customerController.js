@@ -689,10 +689,96 @@ const resetPassword = async (req, res) => {
 };
 
 /**
+ * GET PROFILE
+ * GET /api/customer/profile
+ * Protected — Customer only
+ */
+const getProfile = async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.customer._id);
+    res.status(200).json({ success: true, customer: sanitize(customer) });
+  } catch (error) {
+    console.log("❌ Get Profile Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * UPDATE PROFILE
+ * PUT /api/customer/profile
+ * body: { fname, lname, mobile, email }
+ * Protected — Customer only
+ * All fields optional — only the ones sent are updated.
+ */
+const updateProfile = async (req, res) => {
+  try {
+    const { fname, lname, mobile, email } = req.body;
+
+    const customer = await Customer.findById(req.customer._id);
+    if (!customer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Customer not found" });
+    }
+
+    if (email && email.toLowerCase() !== customer.email) {
+      const existingEmail = await Customer.findOne({
+        email: email.toLowerCase(),
+        _id: { $ne: customer._id },
+      });
+      if (existingEmail) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Email already exists" });
+      }
+      customer.email = email.toLowerCase();
+    }
+
+    if (mobile && mobile !== customer.mobile) {
+      const existingMobile = await Customer.findOne({
+        mobile,
+        _id: { $ne: customer._id },
+      });
+      if (existingMobile) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Mobile number already exists" });
+      }
+      customer.mobile = mobile;
+    }
+
+    if (fname) customer.fname = fname;
+    if (lname) customer.lname = lname;
+
+    await customer.save();
+
+    console.log("✅ Profile updated for customer:", customer.email);
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated",
+      customer: sanitize(customer),
+    });
+  } catch (error) {
+    console.log("❌ Update Profile Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * ADD ADDRESS
  * POST /api/customer/address
  * body: { label, line1, line2, city, state, pincode, isDefault }
  * Protected — Customer only
+ * A customer may save at most 2 addresses (1 primary + 1 secondary).
  */
 const addAddress = async (req, res) => {
   try {
@@ -707,6 +793,14 @@ const addAddress = async (req, res) => {
 
     const customer = await Customer.findById(req.customer._id);
 
+    if (customer.addresses.length >= 2) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "You can only save up to 2 addresses. Please update or delete an existing one.",
+      });
+    }
+
     if (isDefault) {
       customer.addresses.forEach((a) => (a.isDefault = false));
     }
@@ -718,7 +812,7 @@ const addAddress = async (req, res) => {
       city,
       state,
       pincode,
-      isDefault: isDefault || customer.addresses.length === 0, // first address defaults true
+      isDefault: isDefault || customer.addresses.length === 0, // first address defaults true (primary)
     });
 
     await customer.save();
@@ -732,6 +826,58 @@ const addAddress = async (req, res) => {
     });
   } catch (error) {
     console.log("❌ Add Address Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * UPDATE ADDRESS
+ * PUT /api/customer/address/:addressId
+ * body: { label, line1, line2, city, state, pincode, isDefault }
+ * Protected — Customer only
+ * All fields optional — only the ones sent are updated.
+ */
+const updateAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const { label, line1, line2, city, state, pincode, isDefault } = req.body;
+
+    const customer = await Customer.findById(req.customer._id);
+    const address = customer.addresses.id(addressId);
+
+    if (!address) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Address not found" });
+    }
+
+    if (label !== undefined) address.label = label;
+    if (line1 !== undefined) address.line1 = line1;
+    if (line2 !== undefined) address.line2 = line2;
+    if (city !== undefined) address.city = city;
+    if (state !== undefined) address.state = state;
+    if (pincode !== undefined) address.pincode = pincode;
+
+    if (isDefault) {
+      customer.addresses.forEach((a) => (a.isDefault = false));
+      address.isDefault = true;
+    }
+
+    await customer.save();
+
+    console.log("✅ Address updated for customer:", customer.email);
+
+    res.status(200).json({
+      success: true,
+      message: "Address updated",
+      addresses: customer.addresses,
+    });
+  } catch (error) {
+    console.log("❌ Update Address Error:", error.message);
     res.status(500).json({
       success: false,
       message: "Server Error",
@@ -847,8 +993,11 @@ module.exports = {
   forgotPassword,
   verifyForgotOTP,
   resetPassword,
+  getProfile,
+  updateProfile,
   addAddress,
   getAddresses,
+  updateAddress,
   deleteAddress,
   setDefaultAddress,
 };
