@@ -46,13 +46,16 @@ const generateHash = ({ txnid, amount, productinfo, firstname, email }) => {
 
 /**
  * VERIFY REVERSE HASH (from PayU's success/failure callback)
- * PayU sequence (reversed, status inserted after salt):
+ *
+ * Standard sequence:
  * sha512(salt|status|udf10|...|udf1|email|firstname|productinfo|amount|txnid|key)
  *
- * IMPORTANT: this has NOT been exercised against a live PayU sandbox
- * transaction in this environment (no network access to test.payu.in
- * here). It follows PayU's documented formula exactly, but run a real
- * test-mode transaction end-to-end before trusting this in production.
+ * When PayU applies a convenience fee, it adds an "additionalCharges" field
+ * to the response AND changes the hash formula to prepend it:
+ * sha512(additionalCharges|salt|status|udf10|...|udf1|email|firstname|productinfo|amount|txnid|key)
+ * Confirmed against a real PayU sandbox response — this case must be
+ * checked first whenever additionalCharges is present, or the hash
+ * will always mismatch on convenience-fee transactions.
  */
 const verifyReverseHash = (payload) => {
   const {
@@ -62,33 +65,40 @@ const verifyReverseHash = (payload) => {
     productinfo,
     amount,
     txnid,
+    additionalCharges,
     hash: receivedHash,
   } = payload;
 
-  const hashString = [
-    PAYU_SALT,
-    status,
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "", // udf10-udf1 (10 fields)
-    email,
-    firstname,
-    productinfo,
-    amount,
-    txnid,
-    PAYU_KEY,
-  ].join("|");
+  const udfBlock = ["", "", "", "", "", "", "", "", "", ""]; // udf10-udf1
+
+  const fields = additionalCharges
+    ? [
+        additionalCharges,
+        PAYU_SALT,
+        status,
+        ...udfBlock,
+        email,
+        firstname,
+        productinfo,
+        amount,
+        txnid,
+        PAYU_KEY,
+      ]
+    : [
+        PAYU_SALT,
+        status,
+        ...udfBlock,
+        email,
+        firstname,
+        productinfo,
+        amount,
+        txnid,
+        PAYU_KEY,
+      ];
 
   const expectedHash = crypto
     .createHash("sha512")
-    .update(hashString)
+    .update(fields.join("|"))
     .digest("hex");
 
   return expectedHash === receivedHash;
