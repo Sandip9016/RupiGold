@@ -8,6 +8,7 @@ const {
   getMyOrders,
   getVendorOrders,
   updateSubOrderStatus,
+  cancelOrder,
 } = require("../controllers/orderController");
 
 const {
@@ -18,6 +19,7 @@ const {
 // CUSTOMER — Protected
 router.post("/checkout", customerProtect, checkout);
 router.get("/my", customerProtect, getMyOrders);
+router.put("/:orderId/cancel", customerProtect, cancelOrder);
 
 // VENDOR — Protected
 router.get("/vendor/my", vendorProtect, getVendorOrders);

@@ -483,6 +483,153 @@ const updateSubOrderStatus = async (req, res) => {
   }
 };
 
+/**
+ * CANCEL ORDER — customer-initiated, only before any subOrder ships.
+ * Restores stock for every cancelled subOrder and flags the order
+ * for a manual refund (see payu.refundStatus).
+ *
+ * PUT /api/order/:orderId/cancel
+ * body: { reason }
+ * Protected — Customer only (own order)
+ */
+const cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    console.log("=================================");
+    console.log("📥 CANCEL ORDER API CALLED");
+    console.log("👤 Customer ID:", req.customer._id.toString());
+    console.log("📦 Order ID:", orderId, "| reason:", reason);
+    console.log("=================================");
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    if (order.customerId.toString() !== req.customer._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden — not your order",
+      });
+    }
+
+    if (order.payu.status !== "Success") {
+      return res.status(400).json({
+        success: false,
+        message: "Only a paid order can be cancelled",
+      });
+    }
+
+    // Any subOrder already Shipped/Delivered/Cancelled blocks a full
+    // cancel — the customer can't unship a package. Partial vendor
+    // fulfilment means partial cancel here, whole-order refund left
+    // for admin to sort out manually.
+    const nonCancellable = order.subOrders.filter(
+      (so) => so.fulfillmentStatus !== "Processing",
+    );
+    if (nonCancellable.length === order.subOrders.length) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This order has already shipped and can no longer be cancelled",
+      });
+    }
+
+    const cancelled = order.subOrders.filter(
+      (so) => so.fulfillmentStatus === "Processing",
+    );
+
+    for (const subOrder of cancelled) {
+      subOrder.fulfillmentStatus = "Cancelled";
+      subOrder.cancelReason = reason || "Cancelled by customer";
+
+      for (const item of subOrder.items) {
+        console.log(
+          `📦 Restoring stock — product:${item.productId} +${item.quantity}`,
+        );
+        await Product.findByIdAndUpdate(item.productId, {
+          $inc: { quantity: item.quantity },
+        });
+      }
+    }
+
+    order.payu.refundStatus = "Requested";
+    await order.save();
+
+    console.log(
+      `✅ Cancelled ${cancelled.length}/${order.subOrders.length} subOrder(s) on order ${orderId} — refund marked Requested`,
+    );
+
+    res.status(200).json({
+      success: true,
+      message:
+        nonCancellable.length > 0
+          ? "Order partially cancelled — some items had already shipped"
+          : "Order cancelled — refund is being processed",
+      order,
+    });
+  } catch (error) {
+    console.log("❌ Cancel Order Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * MARK ORDER REFUNDED — admin confirms money was actually sent back
+ * outside the system (manual today, same pattern as payoutStatus).
+ *
+ * PUT /api/admin/order/:orderId/refund
+ * Protected — Admin only
+ */
+const adminMarkRefunded = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    console.log("=================================");
+    console.log("📥 ADMIN MARK REFUNDED API CALLED");
+    console.log("📦 Order ID:", orderId);
+    console.log("=================================");
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    if (order.payu.refundStatus !== "Requested") {
+      return res.status(400).json({
+        success: false,
+        message: `No refund pending — current refundStatus is "${order.payu.refundStatus}"`,
+      });
+    }
+
+    order.payu.refundStatus = "Refunded";
+    await order.save();
+
+    console.log(`✅ Order ${orderId} marked Refunded`);
+
+    res
+      .status(200)
+      .json({ success: true, message: "Order marked as refunded", order });
+  } catch (error) {
+    console.log("❌ Admin Mark Refunded Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   checkout,
   payuSuccess,
@@ -490,4 +637,6 @@ module.exports = {
   getMyOrders,
   getVendorOrders,
   updateSubOrderStatus,
+  cancelOrder,
+  adminMarkRefunded,
 };

@@ -10,6 +10,8 @@ const {
   getAllContributorsAdmin,
 } = require("../controllers/adminController");
 
+const { adminMarkRefunded } = require("../controllers/orderController");
+
 const { adminOnly } = require("../middleware/authMiddleware");
 
 // POST /api/admin/login
@@ -26,5 +28,8 @@ router.patch("/vendor/:id/reject", adminOnly, rejectVendorDashboard);
 // ── CONTRIBUTORS — READ-ONLY MONITORING (JWT protected) ────────
 // Contributors have no approval workflow — this is visibility only.
 router.get("/contributors", adminOnly, getAllContributorsAdmin);
+
+// ── ORDERS — MANUAL REFUND CONFIRMATION (JWT protected) ────────
+router.put("/order/:orderId/refund", adminOnly, adminMarkRefunded);
 
 module.exports = router;

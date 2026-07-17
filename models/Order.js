@@ -56,6 +56,9 @@ const subOrderSchema = new mongoose.Schema({
     enum: ["Pending", "Paid"],
     default: "Pending",
   },
+
+  // Set when this subOrder is cancelled (by customer, before shipping).
+  cancelReason: { type: String, default: null },
 });
 
 const orderSchema = new mongoose.Schema(
@@ -99,6 +102,16 @@ const orderSchema = new mongoose.Schema(
       mode: { type: String, default: null }, // e.g. CC, NB, UPI — returned by PayU
       isTestMode: { type: Boolean, default: true },
       rawResponse: { type: mongoose.Schema.Types.Mixed, default: null },
+
+      // "Requested" set automatically when customer cancels a paid order.
+      // "Refunded" is set by admin once money is actually sent back —
+      // manual today, same pattern as payoutStatus. Wire to PayU's
+      // refund API later if needed.
+      refundStatus: {
+        type: String,
+        enum: ["None", "Requested", "Refunded"],
+        default: "None",
+      },
     },
   },
   {
