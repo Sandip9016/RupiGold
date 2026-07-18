@@ -349,11 +349,19 @@ const getMyOrders = async (req, res) => {
     console.log("👤 Customer ID:", req.customer._id.toString());
     console.log("=================================");
 
-    const orders = await Order.find({ customerId: req.customer._id })
+    const orders = await Order.find({
+      customerId: req.customer._id,
+      "payu.status": "Success", // only paid orders — hide Initiated/Failed
+    })
+      .select("-payu.rawResponse -payu.txnId")
       .populate("subOrders.vendorId", "businessName")
+      .populate(
+        "subOrders.items.productId",
+        "productName productImages category description purity weight price",
+      )
       .sort({ createdAt: -1 });
 
-    console.log(`✅ Found ${orders.length} order(s)`);
+    console.log(`✅ Found ${orders.length} paid order(s)`);
 
     res.status(200).json({ success: true, total: orders.length, orders });
   } catch (error) {
