@@ -227,16 +227,8 @@ const submitBankDetails = async (req, res) => {
 
     const vendor = await Vendor.findById(vendorId);
 
-    // Client requirement: account holder name must match PAN name
-    if (
-      vendor.name &&
-      bank_holder_name.trim().toLowerCase() !== vendor.name.trim().toLowerCase()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Account holder name must match the PAN name on record",
-      });
-    }
+    // Client requirement update: bank holder name no longer needs to
+    // match the vendor's registered name — can be different.
 
     vendor.bank_holder_name = bank_holder_name;
     vendor.bank_acc_no = bank_acc_no;
