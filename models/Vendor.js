@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const vendorSchema = new mongoose.Schema(
   {
-    businessName: {
+    business_name: {
       type: String,
       required: true,
       trim: true,
@@ -10,11 +10,17 @@ const vendorSchema = new mongoose.Schema(
 
     businessType: {
       type: String,
-      enum: ["Individual", "Proprietorship", "Partnership", "Pvt Ltd"],
+      enum: ["Individual", "Company", "Pvt Ltd"],
       required: true,
     },
 
-    ownerDirectorName: {
+    referral_code: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    name: {
       type: String,
       required: true,
       trim: true,
@@ -35,7 +41,7 @@ const vendorSchema = new mongoose.Schema(
       required: true,
     },
 
-    address: {
+    shop_address: {
       type: String,
       required: true,
     },
@@ -45,7 +51,7 @@ const vendorSchema = new mongoose.Schema(
       required: true,
     },
 
-    mobileNumber: {
+    mobile: {
       type: String,
       required: true,
       unique: true,
@@ -77,10 +83,10 @@ const vendorSchema = new mongoose.Schema(
     },
 
     // ── ADMIN APPROVAL WORKFLOW ────────────────────────────────
-    approvalStatus: {
+    status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
-      default: "Pending",
+      enum: ["pending", "under_review", "approved", "rejected", "banned"],
+      default: "pending",
     },
 
     rejectionReason: {
@@ -92,6 +98,16 @@ const vendorSchema = new mongoose.Schema(
     // admin-notification email (so admin can approve with a single click)
     approvalToken: {
       type: String,
+      default: null,
+    },
+
+    kyc_submitted_at: {
+      type: Date,
+      default: null,
+    },
+
+    approved_at: {
+      type: Date,
       default: null,
     },
 
@@ -112,11 +128,73 @@ const vendorSchema = new mongoose.Schema(
       default: null,
     },
 
-    bankDetails: {
-      accountHolderName: { type: String, default: null },
-      accountNumber: { type: String, default: null },
-      ifsc: { type: String, default: null },
-      panNumber: { type: String, default: null },
+    // ── KYC / BUSINESS VERIFICATION ────────────────────────────
+    pan_no: {
+      type: String,
+      default: null,
+    },
+
+    pan_verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    gst_no: {
+      type: String,
+      default: null,
+    },
+
+    gst_verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    bank_holder_name: {
+      type: String,
+      default: null,
+    },
+
+    bank_name: {
+      type: String,
+      default: null,
+    },
+
+    bank_acc_no: {
+      type: String,
+      default: null,
+    },
+
+    ifsc: {
+      type: String,
+      default: null,
+    },
+
+    bank_verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    bis_license_no: {
+      type: String,
+      default: null,
+    },
+
+    aadhaar_no: {
+      type: String,
+      default: null,
+    },
+
+    aadhaar_verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Tracks furthest KYC step completed: 0 = not started, 1-4 = step done
+    kyc_step: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 4,
     },
   },
   {

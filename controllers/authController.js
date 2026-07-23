@@ -134,17 +134,23 @@ const login = async (req, res) => {
 
     // ── VENDOR-ONLY: ADMIN APPROVAL GATE ──────────────────────
     if (role === "vendor") {
-      if (account.approvalStatus === "Pending") {
+      if (account.status === "pending" || account.status === "under_review") {
         return res.status(403).json({
           success: false,
           message: "Your account is awaiting admin approval",
         });
       }
-      if (account.approvalStatus === "Rejected") {
+      if (account.status === "rejected") {
         return res.status(403).json({
           success: false,
           message: "Your registration was rejected",
           reason: account.rejectionReason || undefined,
+        });
+      }
+      if (account.status === "banned") {
+        return res.status(403).json({
+          success: false,
+          message: "Your account has been banned",
         });
       }
     }
@@ -158,11 +164,9 @@ const login = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      { id: account._id, role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+    const token = jwt.sign({ id: account._id, role }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     const accountData = account.toObject();
     delete accountData.password;

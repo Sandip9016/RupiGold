@@ -126,7 +126,7 @@ const getAllProducts = async (req, res) => {
     console.log("=================================");
 
     const products = await Product.find()
-      .populate("vendorId", "businessName email city")
+      .populate("vendorId", "business_name email city")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -159,7 +159,7 @@ const getProductById = async (req, res) => {
 
     const product = await Product.findById(id).populate(
       "vendorId",
-      "businessName email city",
+      "business_name email city",
     );
 
     if (!product) {

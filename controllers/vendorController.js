@@ -1,4 +1,5 @@
 const Vendor = require("../models/Vendor");
+const VendorOtpLog = require("../models/VendorOtpLog");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
@@ -161,12 +162,12 @@ const adminNewVendorTemplate = (vendor, acceptLink) => `
                 </tr>
                 <tr>
                   <td style="padding:20px;font-size:14px;color:#333;line-height:1.9;">
-                    <strong>Business Name:</strong> ${vendor.businessName}<br/>
+                    <strong>Business Name:</strong> ${vendor.business_name}<br/>
                     <strong>Business Type:</strong> ${vendor.businessType}<br/>
-                    <strong>Owner / Director:</strong> ${vendor.ownerDirectorName}<br/>
+                    <strong>Owner / Director:</strong> ${vendor.name}<br/>
                     <strong>Email:</strong> ${vendor.email}<br/>
-                    <strong>Mobile:</strong> ${vendor.mobileNumber}<br/>
-                    <strong>Address:</strong> ${vendor.address}, ${vendor.city}, ${vendor.state}, ${vendor.country} - ${vendor.pincode}
+                    <strong>Mobile:</strong> ${vendor.mobile}<br/>
+                    <strong>Address:</strong> ${vendor.shop_address}, ${vendor.city}, ${vendor.state}, ${vendor.country} - ${vendor.pincode}
                   </td>
                 </tr>
               </table>
@@ -213,42 +214,73 @@ const adminNewVendorTemplate = (vendor, acceptLink) => `
 const registerVendor = async (req, res) => {
   try {
     const {
-      businessName,
+      business_name,
       businessType,
-      ownerDirectorName,
+      name,
       country,
       state,
       city,
-      address,
+      shop_address,
       pincode,
-      mobileNumber,
+      mobile,
       email,
       password,
+      referral_code, // optional
     } = req.body;
 
     console.log("=================================");
     console.log("📥 REGISTER API CALLED");
-    console.log("🏢 Business Name:", businessName);
+    console.log("🏢 Business Name:", business_name);
     console.log("📧 Email:", email);
-    console.log("📱 Mobile:", mobileNumber);
+    console.log("📱 Mobile:", mobile);
     console.log("=================================");
 
     if (
-      !businessName ||
+      !business_name ||
       !businessType ||
-      !ownerDirectorName ||
+      !name ||
       !country ||
       !state ||
       !city ||
-      !address ||
+      !shop_address ||
       !pincode ||
-      !mobileNumber ||
+      !mobile ||
       !email ||
       !password
     ) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
+      });
+    }
+
+    if (!["Individual", "Company", "Pvt Ltd"].includes(businessType)) {
+      return res.status(400).json({
+        success: false,
+        message: "businessType must be Individual, Company or Pvt Ltd",
+      });
+    }
+
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number must be a valid 10 digit number",
+      });
+    }
+
+    if (!/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Pincode must be a valid 6 digit number",
+      });
+    }
+
+    // Password: min 8 chars, at least 1 number
+    if (!/^(?=.*\d).{8,}$/.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 8 characters and contain at least 1 number",
       });
     }
 
@@ -261,7 +293,7 @@ const registerVendor = async (req, res) => {
       });
     }
 
-    const existingMobile = await Vendor.findOne({ mobileNumber });
+    const existingMobile = await Vendor.findOne({ mobile });
 
     if (existingMobile) {
       return res.status(400).json({
@@ -281,22 +313,35 @@ const registerVendor = async (req, res) => {
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
     const vendor = await Vendor.create({
-      businessName,
+      business_name,
       businessType,
-      ownerDirectorName,
+      name,
       country,
       state,
       city,
-      address,
+      shop_address,
       pincode,
-      mobileNumber,
+      mobile,
       email,
       password: hashedPassword,
+      referral_code: referral_code || null,
       otp,
       otpExpiry,
     });
 
     console.log("✅ Vendor registered successfully");
+
+    // ── OTP AUDIT LOG (non-blocking — never fail registration on this) ──
+    try {
+      await VendorOtpLog.create({
+        identifier: email,
+        otp,
+        type: "email_verify",
+        expires_at: otpExpiry,
+      });
+    } catch (logErr) {
+      console.log("⚠️ OTP log write failed (non-blocking):", logErr.message);
+    }
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -377,10 +422,22 @@ const verifyOTP = async (req, res) => {
     vendor.otp = null;
     vendor.otpExpiry = null;
 
+    // ── OTP AUDIT LOG (non-blocking) ─────────────────────────────
+    try {
+      await VendorOtpLog.findOneAndUpdate(
+        { identifier: email, otp, type: "email_verify" },
+        { verified: true, verified_at: new Date() },
+        { sort: { createdAt: -1 } },
+      );
+    } catch (logErr) {
+      console.log("⚠️ OTP log update failed (non-blocking):", logErr.message);
+    }
+
     // ── ADMIN APPROVAL WORKFLOW ─────────────────────────────────
-    vendor.approvalStatus = "Pending";
+    vendor.status = "pending";
     vendor.rejectionReason = null;
     vendor.approvalToken = crypto.randomBytes(32).toString("hex");
+    vendor.kyc_submitted_at = new Date();
 
     await vendor.save();
 
@@ -487,6 +544,18 @@ const resendOTP = async (req, res) => {
     vendor.otpExpiry = otpExpiry;
 
     await vendor.save();
+
+    // ── OTP AUDIT LOG (non-blocking) ─────────────────────────────
+    try {
+      await VendorOtpLog.create({
+        identifier: email,
+        otp,
+        type: "email_verify",
+        expires_at: otpExpiry,
+      });
+    } catch (logErr) {
+      console.log("⚠️ OTP log write failed (non-blocking):", logErr.message);
+    }
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,

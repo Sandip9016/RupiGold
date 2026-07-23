@@ -225,7 +225,7 @@ const loginAdmin = async (req, res) => {
 // ─── GET PENDING VENDORS — ADMIN DASHBOARD ────────────────────
 const getPendingVendors = async (req, res) => {
   try {
-    const vendors = await Vendor.find({ approvalStatus: "Pending" })
+    const vendors = await Vendor.find({ status: "pending" })
       .select("-password -otp -otpExpiry -approvalToken")
       .sort({ createdAt: -1 });
 
@@ -263,13 +263,13 @@ const approveVendorViaLink = async (req, res) => {
         );
     }
 
-    if (vendor.approvalStatus !== "Pending") {
+    if (vendor.status !== "pending") {
       return res
         .status(400)
         .send(
           simpleResultPage(
             "Already Processed",
-            `This vendor has already been marked as "${vendor.approvalStatus}".`,
+            `This vendor has already been marked as "${vendor.status}".`,
             false,
           ),
         );
@@ -287,9 +287,10 @@ const approveVendorViaLink = async (req, res) => {
         );
     }
 
-    vendor.approvalStatus = "Approved";
+    vendor.status = "approved";
     vendor.rejectionReason = null;
     vendor.approvalToken = null;
+    vendor.approved_at = new Date();
     await vendor.save();
 
     console.log("✅ Vendor approved via email link:", vendor.email);
@@ -299,10 +300,7 @@ const approveVendorViaLink = async (req, res) => {
         from: `"RupiGold" <${process.env.EMAIL_USER}>`,
         to: vendor.email,
         subject: "✅ Your Vendor Account is Approved — RupiGold",
-        html: vendorApprovedTemplate(
-          vendor.ownerDirectorName,
-          vendor.businessName,
-        ),
+        html: vendorApprovedTemplate(vendor.name, vendor.business_name),
       });
       console.log("📧 Approval email sent to:", vendor.email);
     } catch (emailErr) {
@@ -314,7 +312,7 @@ const approveVendorViaLink = async (req, res) => {
       .send(
         simpleResultPage(
           "Vendor Approved",
-          `${vendor.businessName} has been approved and notified by email.`,
+          `${vendor.business_name} has been approved and notified by email.`,
           true,
         ),
       );
@@ -345,15 +343,16 @@ const approveVendorDashboard = async (req, res) => {
         .json({ success: false, message: "Vendor not found" });
     }
 
-    if (vendor.approvalStatus === "Approved") {
+    if (vendor.status === "approved") {
       return res
         .status(400)
         .json({ success: false, message: "Vendor is already approved" });
     }
 
-    vendor.approvalStatus = "Approved";
+    vendor.status = "approved";
     vendor.rejectionReason = null;
     vendor.approvalToken = null;
+    vendor.approved_at = new Date();
     await vendor.save();
 
     console.log("✅ Vendor approved via dashboard:", vendor.email);
@@ -363,10 +362,7 @@ const approveVendorDashboard = async (req, res) => {
         from: `"RupiGold" <${process.env.EMAIL_USER}>`,
         to: vendor.email,
         subject: "✅ Your Vendor Account is Approved — RupiGold",
-        html: vendorApprovedTemplate(
-          vendor.ownerDirectorName,
-          vendor.businessName,
-        ),
+        html: vendorApprovedTemplate(vendor.name, vendor.business_name),
       });
       console.log("📧 Approval email sent to:", vendor.email);
     } catch (emailErr) {
@@ -407,14 +403,14 @@ const rejectVendorDashboard = async (req, res) => {
         .json({ success: false, message: "Vendor not found" });
     }
 
-    if (vendor.approvalStatus === "Approved") {
+    if (vendor.status === "approved") {
       return res.status(400).json({
         success: false,
         message: "This vendor is already approved and cannot be rejected",
       });
     }
 
-    vendor.approvalStatus = "Rejected";
+    vendor.status = "rejected";
     vendor.rejectionReason = reason.trim();
     vendor.approvalToken = null;
     await vendor.save();
@@ -427,8 +423,8 @@ const rejectVendorDashboard = async (req, res) => {
         to: vendor.email,
         subject: "❌ Your Vendor Registration Was Not Approved — RupiGold",
         html: vendorRejectedTemplate(
-          vendor.ownerDirectorName,
-          vendor.businessName,
+          vendor.name,
+          vendor.business_name,
           vendor.rejectionReason,
         ),
       });

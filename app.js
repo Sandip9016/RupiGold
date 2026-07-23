@@ -33,6 +33,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api/vendor", require("./routes/vendorRoutes"));
+app.use("/api/vendor/kyc", require("./routes/vendorKycRoutes"));
 app.use("/api/contributor", require("./routes/contributorRoutes"));
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/post", require("./routes/postRoutes"));

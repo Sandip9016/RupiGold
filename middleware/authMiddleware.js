@@ -46,18 +46,25 @@ const vendorProtect = async (req, res, next) => {
     }
 
     // ── ADMIN APPROVAL GATE ─────────────────────────────────────
-    if (vendor.approvalStatus === "Pending") {
+    if (vendor.status === "pending" || vendor.status === "under_review") {
       return res.status(403).json({
         success: false,
         message: "Your account is awaiting admin approval",
       });
     }
 
-    if (vendor.approvalStatus === "Rejected") {
+    if (vendor.status === "rejected") {
       return res.status(403).json({
         success: false,
         message: "Your registration was rejected",
         reason: vendor.rejectionReason || undefined,
+      });
+    }
+
+    if (vendor.status === "banned") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been banned",
       });
     }
 

@@ -354,7 +354,7 @@ const getMyOrders = async (req, res) => {
       "payu.status": "Success", // only paid orders — hide Initiated/Failed
     })
       .select("-payu.rawResponse -payu.txnId")
-      .populate("subOrders.vendorId", "businessName")
+      .populate("subOrders.vendorId", "business_name")
       .populate(
         "subOrders.items.productId",
         "productName productImages category description purity weight price",
