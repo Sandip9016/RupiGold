@@ -41,20 +41,24 @@ const uploadPan = async (req, res) => {
     const vendorId = req.vendor._id;
     const { pan_no } = req.body;
 
+    console.log("=================================");
+    console.log("📥 UPLOAD PAN API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("🪪 PAN No:", pan_no);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
+
     if (!pan_no) {
       return res
         .status(400)
         .json({ success: false, message: "pan_no is required" });
     }
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({ success: false, message: "PAN card file is required" });
+
+    // PAN card image not required by client — file optional
+    if (req.file) {
+      const fileUrl = req.file.path || req.file.secure_url;
+      await saveDocument(vendorId, "pan_card", fileUrl);
     }
-
-    const fileUrl = req.file.path || req.file.secure_url;
-
-    await saveDocument(vendorId, "pan_card", fileUrl);
 
     const result = await verifyPanWithSurepass(pan_no);
 
@@ -67,6 +71,8 @@ const uploadPan = async (req, res) => {
     if (result.error) {
       console.log("⚠️ Surepass PAN verify error (non-blocking):", result.error);
     }
+
+    console.log("✅ PAN processed. Verified:", result.verified);
 
     res.status(200).json({
       success: true,
@@ -92,6 +98,13 @@ const uploadGst = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
     const { gst_no } = req.body;
+
+    console.log("=================================");
+    console.log("📥 UPLOAD GST API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("🧾 GST No:", gst_no);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
 
     if (!gst_no) {
       return res
@@ -122,6 +135,8 @@ const uploadGst = async (req, res) => {
       );
     }
 
+    console.log("✅ GST processed. Verified:", result.verified);
+
     res.status(200).json({
       success: true,
       message: result.verified
@@ -147,6 +162,13 @@ const uploadBusinessProof = async (req, res) => {
     const vendorId = req.vendor._id;
     const { proof_type } = req.body;
 
+    console.log("=================================");
+    console.log("📥 UPLOAD BUSINESS PROOF API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("📄 Proof Type:", proof_type);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
+
     if (!["shop_act", "coi_certificate"].includes(proof_type)) {
       return res.status(400).json({
         success: false,
@@ -166,6 +188,8 @@ const uploadBusinessProof = async (req, res) => {
     await bumpKycStep(vendor, 1);
     await vendor.save();
 
+    console.log("✅ Business proof uploaded successfully");
+
     res.status(200).json({ success: true, message: "Business proof uploaded" });
   } catch (error) {
     console.log("❌ Upload Business Proof Error:", error.message);
@@ -184,6 +208,14 @@ const submitBankDetails = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
     const { bank_holder_name, bank_acc_no, ifsc, bank_name } = req.body;
+
+    console.log("=================================");
+    console.log("📥 SUBMIT BANK DETAILS API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("🏦 Bank Name:", bank_name);
+    console.log("👤 Holder Name:", bank_holder_name);
+    console.log("🔢 IFSC:", ifsc);
+    console.log("=================================");
 
     if (!bank_holder_name || !bank_acc_no || !ifsc || !bank_name) {
       return res.status(400).json({
@@ -213,6 +245,8 @@ const submitBankDetails = async (req, res) => {
     vendor.bank_verified = false; // reset — needs fresh penny-drop
     await vendor.save();
 
+    console.log("✅ Bank details saved successfully");
+
     res.status(200).json({ success: true, message: "Bank details saved" });
   } catch (error) {
     console.log("❌ Submit Bank Details Error:", error.message);
@@ -231,6 +265,12 @@ const uploadCancelledCheque = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
 
+    console.log("=================================");
+    console.log("📥 UPLOAD CANCELLED CHEQUE API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
+
     if (!req.file) {
       return res
         .status(400)
@@ -239,6 +279,8 @@ const uploadCancelledCheque = async (req, res) => {
 
     const fileUrl = req.file.path || req.file.secure_url;
     await saveDocument(vendorId, "cancelled_cheque", fileUrl);
+
+    console.log("✅ Cancelled cheque uploaded successfully");
 
     res
       .status(200)
@@ -260,6 +302,11 @@ const pennyDropVerify = async (req, res) => {
     const vendorId = req.vendor._id;
     const vendor = await Vendor.findById(vendorId);
 
+    console.log("=================================");
+    console.log("📥 PENNY DROP VERIFY API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("=================================");
+
     if (!vendor.bank_acc_no || !vendor.ifsc || !vendor.bank_holder_name) {
       return res.status(400).json({
         success: false,
@@ -280,6 +327,8 @@ const pennyDropVerify = async (req, res) => {
     if (result.error) {
       console.log("⚠️ Cashfree penny-drop error (non-blocking):", result.error);
     }
+
+    console.log("✅ Penny-drop processed. Verified:", result.verified);
 
     res.status(200).json({
       success: true,
@@ -306,6 +355,13 @@ const uploadBisLicense = async (req, res) => {
     const vendorId = req.vendor._id;
     const { bis_license_no } = req.body;
 
+    console.log("=================================");
+    console.log("📥 UPLOAD BIS LICENSE API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("🏅 BIS License No:", bis_license_no);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
+
     if (!bis_license_no) {
       return res
         .status(400)
@@ -323,6 +379,8 @@ const uploadBisLicense = async (req, res) => {
     const vendor = await Vendor.findById(vendorId);
     vendor.bis_license_no = bis_license_no;
     await vendor.save();
+
+    console.log("✅ BIS license uploaded successfully");
 
     res.status(200).json({ success: true, message: "BIS license uploaded" });
   } catch (error) {
@@ -349,6 +407,13 @@ const uploadShopPhotos = async (req, res) => {
     const files = req.files || {};
     const slots = ["shop_photo_1", "shop_photo_2", "shop_photo_3"];
     const missing = slots.filter((slot) => !files[slot]?.[0]);
+
+    console.log("=================================");
+    console.log("📥 UPLOAD SHOP PHOTOS API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("📍 Lat/Lng:", latitude, longitude);
+    console.log("📎 Files Received:", Object.keys(files));
+    console.log("=================================");
 
     if (missing.length > 0) {
       return res.status(400).json({
@@ -377,6 +442,8 @@ const uploadShopPhotos = async (req, res) => {
     await bumpKycStep(vendor, 3);
     await vendor.save();
 
+    console.log("✅ Shop photos uploaded successfully");
+
     res.status(200).json({ success: true, message: "Shop photos uploaded" });
   } catch (error) {
     console.log("❌ Upload Shop Photos Error:", error.message);
@@ -398,6 +465,13 @@ const uploadAadhaar = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
     const { aadhaar_no } = req.body;
+
+    console.log("=================================");
+    console.log("📥 UPLOAD AADHAAR API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("🔢 Aadhaar No (raw, not stored):", aadhaar_no);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
 
     if (!aadhaar_no) {
       return res
@@ -423,6 +497,11 @@ const uploadAadhaar = async (req, res) => {
     vendor.aadhaar_no = `XXXXXXXX${aadhaar_no.slice(-4)}`;
     await vendor.save();
 
+    console.log(
+      "✅ Aadhaar uploaded successfully (masked):",
+      vendor.aadhaar_no,
+    );
+
     res.status(200).json({ success: true, message: "Aadhaar uploaded" });
   } catch (error) {
     console.log("❌ Upload Aadhaar Error:", error.message);
@@ -440,6 +519,12 @@ const uploadAadhaar = async (req, res) => {
 const uploadOwnerPhoto = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
+
+    console.log("=================================");
+    console.log("📥 UPLOAD OWNER PHOTO API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("📎 File Attached:", !!req.file);
+    console.log("=================================");
 
     if (!req.file) {
       return res
@@ -459,6 +544,13 @@ const uploadOwnerPhoto = async (req, res) => {
       vendor.kyc_submitted_at = new Date();
     }
     await vendor.save();
+
+    console.log(
+      "✅ Owner photo uploaded. KYC step:",
+      vendor.kyc_step,
+      "| Status:",
+      vendor.status,
+    );
 
     res.status(200).json({
       success: true,
@@ -482,12 +574,24 @@ const getKycStatus = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
 
+    console.log("=================================");
+    console.log("📥 GET KYC STATUS API CALLED");
+    console.log("🆔 Vendor ID:", vendorId);
+    console.log("=================================");
+
     const vendor = await Vendor.findById(vendorId).select(
       "pan_no pan_verified gst_no gst_verified bank_holder_name bank_name bank_acc_no ifsc bank_verified bis_license_no aadhaar_no aadhaar_verified kyc_step status",
     );
 
     const documents = await VendorDocument.find({ vendor_id: vendorId }).select(
       "doc_type file_url verified verified_at geo_lat geo_lng",
+    );
+
+    console.log(
+      "✅ KYC status fetched. Step:",
+      vendor?.kyc_step,
+      "| Status:",
+      vendor?.status,
     );
 
     res.status(200).json({
